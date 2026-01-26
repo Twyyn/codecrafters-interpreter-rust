@@ -4,6 +4,8 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     LEFT_PAREN, RIGHT_PAREN,
+    LEFT_BRACE, RIGHT_BRACE,
+
 
     EOF,
 }
@@ -58,8 +60,10 @@ impl Lexer {
         match c {
             '(' => self.add_token(TokenType::LEFT_PAREN, None),
             ')' => self.add_token(TokenType::RIGHT_PAREN, None),
+            '{' => self.add_token(TokenType::LEFT_BRACE, None),
+            '}' => self.add_token(TokenType::RIGHT_BRACE, None),
 
-            _ => eprintln!("Unexpected character: {} at line {}", c, self.line),
+            _ => eprintln!("Unexpected character: {}", c),
         }
     }
 
