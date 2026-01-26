@@ -5,6 +5,7 @@ use std::fmt;
 pub enum TokenType {
     LEFT_PAREN, RIGHT_PAREN,
     LEFT_BRACE, RIGHT_BRACE,
+
     COMMA, DOT, SEMICOLON,
     MINUS, PLUS, SLASH, STAR,
 
@@ -33,6 +34,7 @@ pub struct Lexer {
     current: usize,
     start: usize,
     line: usize,
+    had_error: bool,
 }
 impl Lexer {
     pub fn new(source: &str) -> Self {
@@ -42,6 +44,7 @@ impl Lexer {
             current: 0,
             start: 0,
             line: 1,
+            had_error: false,
         }
     }
 
@@ -71,7 +74,7 @@ impl Lexer {
             '/' => self.add_token(TokenType::SLASH, None),
             '*' => self.add_token(TokenType::STAR, None),
 
-            _ => eprintln!("Unexpected character: {}", c),
+            _ => self.error(self.line, &format!("Unexpected character: {}", c)),
         }
     }
 
@@ -105,5 +108,18 @@ impl Lexer {
             literal: None,
             line: self.line,
         });
+    }
+
+    fn error(&mut self, line: usize, message: &str) {
+        self.report(line, "", message);
+    }
+
+    fn report(&mut self, line: usize, where_msg: &str, message: &str) {
+        eprintln!("[line {}] Error:{} {}", line, where_msg, message);
+        self.had_error = true;
+    }
+
+    pub fn had_error(&self) -> bool {
+        self.had_error
     }
 }

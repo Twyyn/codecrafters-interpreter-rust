@@ -2,6 +2,7 @@ use codecrafters_interpreter::lexer::Lexer;
 use std::env;
 use std::fs;
 
+//cargo run -- tokenize C:\Users\bayba\Desktop\test.lox
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -24,6 +25,10 @@ fn main() {
 
             for token in tokens {
                 println!("{token}")
+            }
+
+            if lexer.had_error() {
+                std::process::exit(65);
             }
         }
         _ => {
