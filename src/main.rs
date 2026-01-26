@@ -2,7 +2,7 @@ use codecrafters_interpreter::lexer::Lexer;
 use std::env;
 use std::fs;
 
-//cargo run -- tokenize C:\Users\bayba\Desktop\test.lox
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {

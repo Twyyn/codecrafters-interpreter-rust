@@ -13,6 +13,8 @@ pub enum TokenType {
     GREATER_EQUAL, LESS_EQUAL,
     EQUAL_EQUAL, BANG_EQUAL,
 
+    STRING,
+
     EOF,
 }
 
@@ -40,6 +42,7 @@ pub struct Lexer {
     line: usize,
     had_error: bool,
 }
+
 impl Lexer {
     pub fn new(source: &str) -> Self {
         Self {
@@ -114,6 +117,8 @@ impl Lexer {
                 }
             }
 
+            '"' => self.string(),
+
             '\n' => self.line += 1,
             ' ' | '\r' | '\t' => {}
 
@@ -139,12 +144,35 @@ impl Lexer {
         true
     }
 
-    fn peek(&mut self) -> char {
+    fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0';
         }
         self.source[self.current]
     }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            self.error(self.line, "Unterminated string.");
+            return;
+        }
+
+        self.advance();
+
+        let value = self.source[self.start + 1..self.current - 1]
+            .iter()
+            .collect::<String>();
+
+        self.add_token(TokenType::STRING, Some(value));
+    }
+
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
         let lexeme = self.source[self.start..self.current]
             .iter()
