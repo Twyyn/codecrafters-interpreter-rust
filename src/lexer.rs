@@ -8,6 +8,10 @@ pub enum TokenType {
 
     COMMA, DOT, SEMICOLON,
     MINUS, PLUS, SLASH, STAR,
+    GREATER, LESS, EQUAL, BANG,
+
+    GREATER_EQUAL, LESS_EQUAL,
+    EQUAL_EQUAL, BANG_EQUAL,
 
     EOF,
 }
@@ -73,7 +77,36 @@ impl Lexer {
             '+' => self.add_token(TokenType::PLUS, None),
             '/' => self.add_token(TokenType::SLASH, None),
             '*' => self.add_token(TokenType::STAR, None),
+            '>' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::GREATER_EQUAL, None)
+                } else {
+                    self.add_token(TokenType::GREATER, None)
+                }
+            }
+            '<' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::LESS_EQUAL, None)
+                } else {
+                    self.add_token(TokenType::LESS, None)
+                }
+            }
+            '=' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::EQUAL_EQUAL, None)
+                } else {
+                    self.add_token(TokenType::EQUAL, None)
+                }
+            }
+            '!' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::BANG_EQUAL, None)
+                } else {
+                    self.add_token(TokenType::BANG, None)
+                }
+            }
 
+            
             _ => self.error(self.line, &format!("Unexpected character: {}", c)),
         }
     }
@@ -86,6 +119,13 @@ impl Lexer {
 
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
+    }
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() || self.source[self.current] != expected {
+            return false;
+        }
+        self.current += 1;
+        true
     }
 
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
