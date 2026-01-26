@@ -13,7 +13,7 @@ pub enum TokenType {
     GREATER_EQUAL, LESS_EQUAL,
     EQUAL_EQUAL, BANG_EQUAL,
 
-    STRING,
+    STRING, NUMBER,
 
     EOF,
 }
@@ -118,59 +118,13 @@ impl Lexer {
             }
 
             '"' => self.string(),
+            c if self.is_digit(c) => self.number(),
 
             '\n' => self.line += 1,
             ' ' | '\r' | '\t' => {}
 
             _ => self.error(self.line, &format!("Unexpected character: {}", c)),
         }
-    }
-
-    fn advance(&mut self) -> char {
-        let c = self.source[self.current];
-        self.current += 1;
-        c
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
-
-    fn match_char(&mut self, expected: char) -> bool {
-        if self.is_at_end() || self.source[self.current] != expected {
-            return false;
-        }
-        self.current += 1;
-        true
-    }
-
-    fn peek(&self) -> char {
-        if self.is_at_end() {
-            return '\0';
-        }
-        self.source[self.current]
-    }
-
-    fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-            }
-            self.advance();
-        }
-
-        if self.is_at_end() {
-            self.error(self.line, "Unterminated string.");
-            return;
-        }
-
-        self.advance();
-
-        let value = self.source[self.start + 1..self.current - 1]
-            .iter()
-            .collect::<String>();
-
-        self.add_token(TokenType::STRING, Some(value));
     }
 
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
@@ -193,6 +147,90 @@ impl Lexer {
             literal: None,
             line: self.line,
         });
+    }
+
+    fn advance(&mut self) -> char {
+        let c = self.source[self.current];
+        self.current += 1;
+        c
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
+    }
+
+    fn is_digit(&self, c: char) -> bool {
+        c.is_ascii_digit()
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() || self.source[self.current] != expected {
+            return false;
+        }
+        self.current += 1;
+        true
+    }
+
+    fn peek(&self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source[self.current]
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+        self.source[self.current + 1]
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            self.error(self.line, "Unterminated string.");
+            return;
+        }
+
+        self.advance();
+
+        let literal = self.source[self.start + 1..self.current - 1]
+            .iter()
+            .collect::<String>();
+
+        self.add_token(TokenType::STRING, Some(literal));
+    }
+    fn number(&mut self) {
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            self.advance();
+
+            while self.is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+
+        let value = self.source[self.start..self.current]
+            .iter()
+            .collect::<String>();
+
+        let number = value.parse::<f64>().unwrap();
+        let literal = if number.fract() == 0.0 {
+            format!("{:.1}", number)
+        } else {
+            number.to_string()
+        };
+
+        self.add_token(TokenType::NUMBER, Some(literal));
     }
 
     fn error(&mut self, line: usize, message: &str) {
