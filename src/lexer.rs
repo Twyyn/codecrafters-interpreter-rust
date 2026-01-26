@@ -75,8 +75,16 @@ impl Lexer {
             ';' => self.add_token(TokenType::SEMICOLON, None),
             '-' => self.add_token(TokenType::MINUS, None),
             '+' => self.add_token(TokenType::PLUS, None),
-            '/' => self.add_token(TokenType::SLASH, None),
             '*' => self.add_token(TokenType::STAR, None),
+            '/' => {
+                if self.match_char('/') {
+                    while self.peek() != '\n' && !self.is_at_end() {
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(TokenType::SLASH, None)
+                }
+            }
             '>' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::GREATER_EQUAL, None)
@@ -106,7 +114,9 @@ impl Lexer {
                 }
             }
 
-            
+            '\n' => self.line += 1,
+            ' ' | '\r' | '\t' => {}
+
             _ => self.error(self.line, &format!("Unexpected character: {}", c)),
         }
     }
@@ -120,6 +130,7 @@ impl Lexer {
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
+
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() || self.source[self.current] != expected {
             return false;
@@ -128,6 +139,12 @@ impl Lexer {
         true
     }
 
+    fn peek(&mut self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source[self.current]
+    }
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
         let lexeme = self.source[self.start..self.current]
             .iter()
