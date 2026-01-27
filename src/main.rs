@@ -1,7 +1,8 @@
 use codecrafters_interpreter::lexer::Lexer;
+use codecrafters_interpreter::parser::Parser;
+
 use std::env;
 use std::fs;
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -21,16 +22,16 @@ fn main() {
             });
 
             let mut lexer = Lexer::new(&file_contents);
-            let tokens = lexer.scan_tokens();
-
-            for token in tokens {
-                println!("{token}")
-            }
+            let tokens = lexer.scan_tokens().to_vec();
 
             if lexer.had_error() {
                 std::process::exit(65);
             }
+
+            let mut parser = Parser::new(tokens);
+            println!("{:?}", parser.parse());
         }
+
         _ => {
             eprintln!("Unknown command: {}", command);
         }
