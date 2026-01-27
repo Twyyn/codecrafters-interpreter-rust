@@ -13,7 +13,7 @@ pub enum TokenType {
     GREATER_EQUAL, LESS_EQUAL,
     EQUAL_EQUAL, BANG_EQUAL,
 
-    STRING, NUMBER,
+    STRING, NUMBER, IDENTIFIER,
 
     EOF,
 }
@@ -55,6 +55,8 @@ impl Lexer {
         }
     }
 
+    // === Core Scanning Methods ===
+
     pub fn scan_tokens(&mut self) -> &[Token] {
         while !self.is_at_end() {
             self.start = self.current;
@@ -65,10 +67,10 @@ impl Lexer {
         &self.tokens
     }
 
-    /* Helpers */
     fn scan_token(&mut self) {
         let c = self.advance();
         match c {
+            // Single-character tokens
             '(' => self.add_token(TokenType::LEFT_PAREN, None),
             ')' => self.add_token(TokenType::RIGHT_PAREN, None),
             '{' => self.add_token(TokenType::LEFT_BRACE, None),
@@ -79,59 +81,108 @@ impl Lexer {
             '-' => self.add_token(TokenType::MINUS, None),
             '+' => self.add_token(TokenType::PLUS, None),
             '*' => self.add_token(TokenType::STAR, None),
-            '/' => {
-                if self.match_char('/') {
-                    while self.peek() != '\n' && !self.is_at_end() {
-                        self.advance();
-                    }
-                } else {
-                    self.add_token(TokenType::SLASH, None)
-                }
-            }
-            '>' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::GREATER_EQUAL, None)
-                } else {
-                    self.add_token(TokenType::GREATER, None)
-                }
-            }
-            '<' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::LESS_EQUAL, None)
-                } else {
-                    self.add_token(TokenType::LESS, None)
-                }
-            }
-            '=' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::EQUAL_EQUAL, None)
-                } else {
-                    self.add_token(TokenType::EQUAL, None)
-                }
-            }
-            '!' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::BANG_EQUAL, None)
-                } else {
-                    self.add_token(TokenType::BANG, None)
-                }
-            }
 
+            // One or two character tokens
+            '/' => self.scan_slash(),
+            '>' => self.scan_comparison(TokenType::GREATER, TokenType::GREATER_EQUAL),
+            '<' => self.scan_comparison(TokenType::LESS, TokenType::LESS_EQUAL),
+            '=' => self.scan_comparison(TokenType::EQUAL, TokenType::EQUAL_EQUAL),
+            '!' => self.scan_comparison(TokenType::BANG, TokenType::BANG_EQUAL),
+
+            // Literals
             '"' => self.string(),
             c if self.is_digit(c) => self.number(),
+            c if self.is_alpha(c) => self.identifier(),
 
-            '\n' => self.line += 1,
+            // Whitespace
             ' ' | '\r' | '\t' => {}
+            '\n' => self.line += 1,
 
+            // Error
             _ => self.error(self.line, &format!("Unexpected character: {}", c)),
         }
     }
 
-    fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
-        let lexeme = self.source[self.start..self.current]
+    fn scan_slash(&mut self) {
+        if self.match_char('/') {
+            while self.peek() != '\n' && !self.is_at_end() {
+                self.advance();
+            }
+        } else {
+            self.add_token(TokenType::SLASH, None);
+        }
+    }
+
+    fn scan_comparison(&mut self, single: TokenType, double: TokenType) {
+        let token_type = if self.match_char('=') { double } else { single };
+        self.add_token(token_type, None);
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            self.error(self.line, "Unterminated string.");
+            return;
+        }
+
+        self.advance();
+
+        let literal = self.source[self.start + 1..self.current - 1]
             .iter()
             .collect::<String>();
 
+        self.add_token(TokenType::STRING, Some(literal));
+    }
+
+    fn number(&mut self) {
+        self.consume_digits();
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            self.advance();
+            self.consume_digits();
+        }
+
+        let value = self.get_lexeme();
+        match value.parse::<f64>() {
+            Ok(number) => {
+                let literal = self.format_number(number);
+                self.add_token(TokenType::NUMBER, Some(literal));
+            }
+            Err(_) => {
+                self.error(self.line, &format!("Invalid number: {}", value));
+            }
+        }
+    }
+
+    fn identifier(&mut self) {
+        while self.is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
+
+        self.add_token(TokenType::IDENTIFIER, None);
+    }
+
+    fn is_alpha(&self, c: char) -> bool {
+        c.is_alphabetic() || c == '_'
+    }
+
+    fn is_alpha_numeric(&self, c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
+    }
+
+    // === Token Management ===
+
+    fn get_lexeme(&self) -> String {
+        self.source[self.start..self.current].iter().collect()
+    }
+
+    fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
+        let lexeme = self.get_lexeme();
         self.tokens.push(Token {
             token_type,
             lexeme,
@@ -149,18 +200,12 @@ impl Lexer {
         });
     }
 
+    // === Character Navigation ===
+
     fn advance(&mut self) -> char {
         let c = self.source[self.current];
         self.current += 1;
         c
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
-
-    fn is_digit(&self, c: char) -> bool {
-        c.is_ascii_digit()
     }
 
     fn match_char(&mut self, expected: char) -> bool {
@@ -185,53 +230,33 @@ impl Lexer {
         self.source[self.current + 1]
     }
 
-    fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-            }
-            self.advance();
-        }
-
-        if self.is_at_end() {
-            self.error(self.line, "Unterminated string.");
-            return;
-        }
-
-        self.advance();
-
-        let literal = self.source[self.start + 1..self.current - 1]
-            .iter()
-            .collect::<String>();
-
-        self.add_token(TokenType::STRING, Some(literal));
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
     }
-    fn number(&mut self) {
+
+    // === Character Classification ===
+
+    fn is_digit(&self, c: char) -> bool {
+        c.is_ascii_digit()
+    }
+
+    fn consume_digits(&mut self) {
         while self.is_digit(self.peek()) {
             self.advance();
         }
+    }
 
-        if self.peek() == '.' && self.is_digit(self.peek_next()) {
-            self.advance();
+    // === Formatting ===
 
-            while self.is_digit(self.peek()) {
-                self.advance();
-            }
-        }
-
-        let value = self.source[self.start..self.current]
-            .iter()
-            .collect::<String>();
-
-        let number = value.parse::<f64>().unwrap();
-        let literal = if number.fract() == 0.0 {
+    fn format_number(&self, number: f64) -> String {
+        if number.fract() == 0.0 {
             format!("{:.1}", number)
         } else {
             number.to_string()
-        };
-
-        self.add_token(TokenType::NUMBER, Some(literal));
+        }
     }
+
+    // === Error Handling ===
 
     fn error(&mut self, line: usize, message: &str) {
         self.report(line, "", message);
