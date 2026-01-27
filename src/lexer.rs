@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::fmt;
+use std::sync::LazyLock;
 
 #[rustfmt::skip] #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     LEFT_PAREN, RIGHT_PAREN,
     LEFT_BRACE, RIGHT_BRACE,
@@ -15,8 +17,32 @@ pub enum TokenType {
 
     STRING, NUMBER, IDENTIFIER,
 
+    CLASS, VAR, SUPER, PRINT, RETURN, THIS, AND, OR, 
+    IF, ELSE, FALSE, TRUE, WHILE, FOR, FUN, NIL, 
+
     EOF,
 }
+
+static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
+    let mut keywords = HashMap::new();
+    keywords.insert("class", TokenType::CLASS);
+    keywords.insert("var", TokenType::VAR);
+    keywords.insert("super", TokenType::SUPER);
+    keywords.insert("print", TokenType::PRINT);
+    keywords.insert("return", TokenType::RETURN);
+    keywords.insert("this", TokenType::THIS);
+    keywords.insert("and", TokenType::AND);
+    keywords.insert("or", TokenType::OR);
+    keywords.insert("if", TokenType::IF);
+    keywords.insert("else", TokenType::ELSE);
+    keywords.insert("true", TokenType::TRUE);
+    keywords.insert("false", TokenType::FALSE);
+    keywords.insert("while", TokenType::WHILE);
+    keywords.insert("for", TokenType::FOR);
+    keywords.insert("fun", TokenType::FUN);
+    keywords.insert("nil", TokenType::NIL);
+    keywords
+});
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -164,7 +190,13 @@ impl Lexer {
             self.advance();
         }
 
-        self.add_token(TokenType::IDENTIFIER, None);
+        let text = self.get_lexeme();
+
+        let token_type = KEYWORDS
+            .get(text.as_str())
+            .unwrap_or(&TokenType::IDENTIFIER);
+
+        self.add_token(*token_type, None);
     }
 
     fn is_alpha(&self, c: char) -> bool {
