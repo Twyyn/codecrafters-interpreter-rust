@@ -1,6 +1,6 @@
+use codecrafters_interpreter::ast::AstPrinter;
 use codecrafters_interpreter::lexer::Lexer;
 use codecrafters_interpreter::parser::Parser;
-
 use std::env;
 use std::fs;
 
@@ -15,7 +15,7 @@ fn main() {
     let filename = &args[2];
 
     match command.as_str() {
-        "tokenize" => {
+        "parse" => {
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
                 eprintln!("Failed to read file {}", filename);
                 String::new()
@@ -29,7 +29,9 @@ fn main() {
             }
 
             let mut parser = Parser::new(tokens);
-            println!("{:?}", parser.parse());
+            let expr = parser.parse().unwrap();
+            let mut printer = AstPrinter;
+            println!("{}", printer.print(&expr));
         }
 
         _ => {
