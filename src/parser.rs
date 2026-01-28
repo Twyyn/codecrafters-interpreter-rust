@@ -17,7 +17,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.primary()
+        self.unary()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -61,6 +61,20 @@ impl Parser {
         Ok(expr)
     }
 
+    fn unary(&mut self) -> Result<Expr, ParseError> {
+        if self.match_any(&[TokenType::BANG, TokenType::MINUS]) {
+            let operator = self.previous().clone();
+            let right = self.unary()?;
+
+            return Ok(Expr::Unary {
+                operator,
+                right: Box::new(right),
+            });
+        }
+
+        self.primary()
+    }
+
     // === Navigation ===
 
     fn advance(&mut self) -> &Token {
@@ -92,6 +106,13 @@ impl Parser {
         !self.is_at_end() && self.peek().token_type == token_type
     }
 
+    fn match_any(&mut self, token_types: &[TokenType]) -> bool {
+        if token_types.iter().any(|&t| self.check(t)) {
+            self.advance();
+            return true;
+        }
+        false
+    }
     // === Errors ===
 
     fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token, ParseError> {
