@@ -1,3 +1,4 @@
+use codecrafters_interpreter::interpreter::Interpreter;
 use codecrafters_interpreter::lexer::Lexer;
 use codecrafters_interpreter::parser::Parser;
 use std::{env, fs, process};
@@ -46,6 +47,31 @@ fn main() {
             let mut parser = Parser::new(lex_result.tokens);
             match parser.parse() {
                 Ok(expr) => println!("{expr}"),
+                Err(e) => {
+                    eprintln!("{e}");
+                    process::exit(65);
+                }
+            }
+        }
+        "evaluate" => {
+            let lex_result = Lexer::new(&source).scan_tokens();
+
+            if !lex_result.errors.is_empty() {
+                for err in &lex_result.errors {
+                    eprintln!("{err}");
+                }
+                process::exit(65);
+            }
+
+            let mut parser = Parser::new(lex_result.tokens);
+            match parser.parse() {
+                Ok(expr) => match Interpreter::evaluate(expr) {
+                    Ok(value) => println!("{value}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        process::exit(70);
+                    }
+                },
                 Err(e) => {
                     eprintln!("{e}");
                     process::exit(65);
