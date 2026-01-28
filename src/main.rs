@@ -22,7 +22,7 @@ fn main() {
             let result = Lexer::new(&source).scan_tokens();
 
             for token in &result.tokens {
-                println!("{token}"); // assuming Display impl on Token
+                println!("{token}");
             }
 
             if !result.errors.is_empty() {

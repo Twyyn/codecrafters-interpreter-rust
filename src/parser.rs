@@ -35,6 +35,7 @@ impl Parser {
                     .ok_or_else(|| self.error("Expected number literal"))?
                     .parse::<f64>()
                     .map_err(|_| self.error("Invalid number literal"))?;
+
                 Expr::Literal(LiteralValue::Number(n))
             }
 

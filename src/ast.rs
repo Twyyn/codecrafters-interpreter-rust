@@ -48,7 +48,7 @@ impl Display for LiteralValue {
         match self {
             LiteralValue::Number(n) => {
                 if n.fract() == 0.0 {
-                    write!(f, "{}", *n as i64)
+                    write!(f, "{n:.1}")
                 } else {
                     write!(f, "{n}")
                 }
