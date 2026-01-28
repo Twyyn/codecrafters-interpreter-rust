@@ -4,10 +4,29 @@ use crate::token::{KEYWORDS, Token, TokenType};
 pub struct Lexer {
     source: Vec<char>,
     tokens: Vec<Token>,
+    errors: Vec<LexError>,
     current: usize,
     start: usize,
     line: usize,
-    had_error: bool,
+}
+
+#[derive(Debug)]
+pub struct LexError {
+    pub line: usize,
+    pub message: String,
+}
+
+impl std::fmt::Display for LexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[line {}] Error: {}", self.line, self.message)
+    }
+}
+
+impl std::error::Error for LexError {}
+
+pub struct LexResult {
+    pub tokens: Vec<Token>,
+    pub errors: Vec<LexError>,
 }
 
 impl Lexer {
@@ -15,74 +34,70 @@ impl Lexer {
         Self {
             source: source.chars().collect(),
             tokens: Vec::new(),
+            errors: Vec::new(),
             current: 0,
             start: 0,
             line: 1,
-            had_error: false,
         }
     }
 
-    // === Core Scanning Methods ===
-
-    pub fn scan_tokens(&mut self) -> &[Token] {
+    pub fn scan_tokens(mut self) -> LexResult {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
         }
 
-        self.eof_token();
-        &self.tokens
+        self.tokens.push(Token {
+            token_type: TokenType::EOF,
+            lexeme: String::new(),
+            literal: None,
+            line: self.line,
+        });
+
+        LexResult {
+            tokens: self.tokens,
+            errors: self.errors,
+        }
     }
 
     fn scan_token(&mut self) {
         let c = self.advance();
         match c {
-            // Single-character tokens
-            '(' => self.add_token(TokenType::LEFT_PAREN, None),
-            ')' => self.add_token(TokenType::RIGHT_PAREN, None),
-            '{' => self.add_token(TokenType::LEFT_BRACE, None),
-            '}' => self.add_token(TokenType::RIGHT_BRACE, None),
-            ',' => self.add_token(TokenType::COMMA, None),
-            '.' => self.add_token(TokenType::DOT, None),
-            ';' => self.add_token(TokenType::SEMICOLON, None),
-            '-' => self.add_token(TokenType::MINUS, None),
-            '+' => self.add_token(TokenType::PLUS, None),
-            '*' => self.add_token(TokenType::STAR, None),
+            '(' => self.add_token(TokenType::LEFT_PAREN),
+            ')' => self.add_token(TokenType::RIGHT_PAREN),
+            '{' => self.add_token(TokenType::LEFT_BRACE),
+            '}' => self.add_token(TokenType::RIGHT_BRACE),
+            ',' => self.add_token(TokenType::COMMA),
+            '.' => self.add_token(TokenType::DOT),
+            ';' => self.add_token(TokenType::SEMICOLON),
+            '-' => self.add_token(TokenType::MINUS),
+            '+' => self.add_token(TokenType::PLUS),
+            '*' => self.add_token(TokenType::STAR),
 
-            // One or two character tokens
-            '/' => self.scan_slash(),
-            '>' => self.scan_comparison(TokenType::GREATER, TokenType::GREATER_EQUAL),
-            '<' => self.scan_comparison(TokenType::LESS, TokenType::LESS_EQUAL),
-            '=' => self.scan_comparison(TokenType::EQUAL, TokenType::EQUAL_EQUAL),
-            '!' => self.scan_comparison(TokenType::BANG, TokenType::BANG_EQUAL),
+            '/' => {
+                if self.match_char('/') {
+                    while self.peek() != '\n' && !self.is_at_end() {
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(TokenType::SLASH);
+                }
+            }
 
-            // Literals
+            '>' => self.add_comparison_token(TokenType::GREATER, TokenType::GREATER_EQUAL),
+            '<' => self.add_comparison_token(TokenType::LESS, TokenType::LESS_EQUAL),
+            '=' => self.add_comparison_token(TokenType::EQUAL, TokenType::EQUAL_EQUAL),
+            '!' => self.add_comparison_token(TokenType::BANG, TokenType::BANG_EQUAL),
+
             '"' => self.string(),
-            c if self.is_digit(c) => self.number(),
-            c if self.is_alpha(c) => self.identifier(),
+            '0'..='9' => self.number(),
+            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
 
-            // Whitespace
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
 
-            // Error
-            _ => self.error(self.line, &format!("Unexpected character: {}", c)),
+            _ => self.error(format!("Unexpected character: {c}")),
         }
-    }
-
-    fn scan_slash(&mut self) {
-        if self.match_char('/') {
-            while self.peek() != '\n' && !self.is_at_end() {
-                self.advance();
-            }
-        } else {
-            self.add_token(TokenType::SLASH, None);
-        }
-    }
-
-    fn scan_comparison(&mut self, single: TokenType, double: TokenType) {
-        let token_type = if self.match_char('=') { double } else { single };
-        self.add_token(token_type, None);
     }
 
     fn string(&mut self) {
@@ -94,86 +109,86 @@ impl Lexer {
         }
 
         if self.is_at_end() {
-            self.error(self.line, "Unterminated string.");
+            self.error("Unterminated string.".into());
             return;
         }
 
-        self.advance();
+        self.advance(); // closing "
 
-        let literal = self.source[self.start + 1..self.current - 1]
+        let literal: String = self.source[self.start + 1..self.current - 1]
             .iter()
-            .collect::<String>();
+            .collect();
 
-        self.add_token(TokenType::STRING, Some(literal));
+        self.add_token_with_literal(TokenType::STRING, literal);
     }
 
     fn number(&mut self) {
-        self.consume_digits();
-        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+        while self.peek().is_ascii_digit() {
             self.advance();
-            self.consume_digits();
         }
 
-        let value = self.get_lexeme();
-        match value.parse::<f64>() {
-            Ok(number) => {
-                let literal = self.format_number(number);
-                self.add_token(TokenType::NUMBER, Some(literal));
-            }
-            Err(_) => {
-                self.error(self.line, &format!("Invalid number: {}", value));
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+            self.advance();
+            while self.peek().is_ascii_digit() {
+                self.advance();
             }
         }
+
+        let lexeme = self.lexeme();
+        let n: f64 = lexeme.parse().unwrap(); // valid by construction
+
+        let literal = if n.fract() == 0.0 {
+            format!("{n:.1}")
+        } else {
+            n.to_string()
+        };
+
+        self.add_token_with_literal(TokenType::NUMBER, literal);
     }
 
     fn identifier(&mut self) {
-        while self.is_alpha_numeric(self.peek()) {
+        while matches!(self.peek(), 'a'..='z' | 'A'..='Z' | '0'..='9' | '_') {
             self.advance();
         }
 
-        let text = self.get_lexeme();
-
+        let text = self.lexeme();
         let token_type = KEYWORDS
             .get(text.as_str())
-            .unwrap_or(&TokenType::IDENTIFIER);
-
-        self.add_token(*token_type, None);
+            .copied()
+            .unwrap_or(TokenType::IDENTIFIER);
+        self.add_token(token_type);
     }
 
-    fn is_alpha(&self, c: char) -> bool {
-        c.is_alphabetic() || c == '_'
-    }
+    // === Helpers ===
 
-    fn is_alpha_numeric(&self, c: char) -> bool {
-        c.is_alphanumeric() || c == '_'
-    }
-
-    // === Token Management ===
-
-    fn get_lexeme(&self) -> String {
-        self.source[self.start..self.current].iter().collect()
-    }
-
-    fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
-        let lexeme = self.get_lexeme();
+    fn add_token(&mut self, token_type: TokenType) {
         self.tokens.push(Token {
             token_type,
-            lexeme,
-            literal,
-            line: self.line,
-        });
-    }
-
-    fn eof_token(&mut self) {
-        self.tokens.push(Token {
-            token_type: TokenType::EOF,
-            lexeme: String::new(),
+            lexeme: self.lexeme(),
             literal: None,
             line: self.line,
         });
     }
 
-    // === Character Navigation ===
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: String) {
+        self.tokens.push(Token {
+            token_type,
+            lexeme: self.lexeme(),
+            literal: Some(literal),
+            line: self.line,
+        });
+    }
+
+    fn add_comparison_token(&mut self, single: TokenType, double: TokenType) {
+        let token_type = if self.match_char('=') { double } else { single };
+        self.add_token(token_type);
+    }
+
+    fn lexeme(&self) -> String {
+        self.source[self.start..self.current].iter().collect()
+    }
+
+    // === Navigation ===
 
     fn advance(&mut self) -> char {
         let c = self.source[self.current];
@@ -182,65 +197,30 @@ impl Lexer {
     }
 
     fn match_char(&mut self, expected: char) -> bool {
-        if self.is_at_end() || self.source[self.current] != expected {
-            return false;
+        if self.peek() == expected {
+            self.current += 1;
+            true
+        } else {
+            false
         }
-        self.current += 1;
-        true
     }
 
     fn peek(&self) -> char {
-        if self.is_at_end() {
-            return '\0';
-        }
-        self.source[self.current]
+        self.source.get(self.current).copied().unwrap_or('\0')
     }
 
     fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() {
-            return '\0';
-        }
-        self.source[self.current + 1]
+        self.source.get(self.current + 1).copied().unwrap_or('\0')
     }
 
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
-    // === Character Classification ===
-
-    fn is_digit(&self, c: char) -> bool {
-        c.is_ascii_digit()
-    }
-
-    fn consume_digits(&mut self) {
-        while self.is_digit(self.peek()) {
-            self.advance();
-        }
-    }
-
-    // === Formatting ===
-
-    fn format_number(&self, number: f64) -> String {
-        if number.fract() == 0.0 {
-            format!("{:.1}", number)
-        } else {
-            number.to_string()
-        }
-    }
-
-    // === Error Handling ===
-
-    fn error(&mut self, line: usize, message: &str) {
-        self.report(line, "", message);
-    }
-
-    fn report(&mut self, line: usize, where_msg: &str, message: &str) {
-        eprintln!("[line {}] Error:{} {}", line, where_msg, message);
-        self.had_error = true;
-    }
-
-    pub fn had_error(&self) -> bool {
-        self.had_error
+    fn error(&mut self, message: String) {
+        self.errors.push(LexError {
+            line: self.line,
+            message,
+        });
     }
 }

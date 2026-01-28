@@ -1,41 +1,61 @@
-use codecrafters_interpreter::ast::AstPrinter;
 use codecrafters_interpreter::lexer::Lexer;
 use codecrafters_interpreter::parser::Parser;
-use std::env;
-use std::fs;
+use std::{env, fs, process};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} tokenize <filename>", args[0]);
-        return;
+        eprintln!("Usage: {} <command> <filename>", args[0]);
+        process::exit(64);
     }
 
     let command = &args[1];
     let filename = &args[2];
 
+    let source = fs::read_to_string(filename).unwrap_or_else(|e| {
+        eprintln!("Failed to read file {filename}: {e}");
+        process::exit(66);
+    });
+
     match command.as_str() {
-        "parse" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
+        "tokenize" => {
+            let result = Lexer::new(&source).scan_tokens();
 
-            let mut lexer = Lexer::new(&file_contents);
-            let tokens = lexer.scan_tokens().to_vec();
-
-            if lexer.had_error() {
-                std::process::exit(65);
+            for token in &result.tokens {
+                println!("{token}"); // assuming Display impl on Token
             }
 
-            let mut parser = Parser::new(tokens);
-            let expr = parser.parse().unwrap();
-            let mut printer = AstPrinter;
-            println!("{}", printer.print(&expr));
+            if !result.errors.is_empty() {
+                for err in &result.errors {
+                    eprintln!("{err}");
+                }
+                process::exit(65);
+            }
+        }
+
+        "parse" => {
+            let lex_result = Lexer::new(&source).scan_tokens();
+
+            if !lex_result.errors.is_empty() {
+                for err in &lex_result.errors {
+                    eprintln!("{err}");
+                }
+                process::exit(65);
+            }
+
+            let mut parser = Parser::new(lex_result.tokens);
+            match parser.parse() {
+                Ok(expr) => println!("{expr}"),
+                Err(e) => {
+                    eprintln!("{e}");
+                    process::exit(65);
+                }
+            }
         }
 
         _ => {
-            eprintln!("Unknown command: {}", command);
+            eprintln!("Unknown command: {command}");
+            process::exit(64);
         }
     }
 }

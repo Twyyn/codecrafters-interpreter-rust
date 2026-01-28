@@ -12,77 +12,55 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    // === Core Parsing Methods ===
-
-    pub fn parse(&mut self) -> Result<Expr, String> {
+    pub fn parse(&mut self) -> Result<Expr, ParseError> {
         self.expression()
     }
 
-    fn expression(&mut self) -> Result<Expr, String> {
+    fn expression(&mut self) -> Result<Expr, ParseError> {
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<Expr, String> {
-        match self.peek().token_type {
-            TokenType::TRUE => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Boolean(true),
-                })
-            }
-            TokenType::FALSE => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Boolean(false),
-                })
-            }
-            TokenType::NIL => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Nil,
-                })
-            }
+    fn primary(&mut self) -> Result<Expr, ParseError> {
+        let token = self.peek();
+
+        let expr = match token.token_type {
+            TokenType::TRUE => Expr::Literal(LiteralValue::Boolean(true)),
+            TokenType::FALSE => Expr::Literal(LiteralValue::Boolean(false)),
+            TokenType::NIL => Expr::Literal(LiteralValue::Nil),
+
             TokenType::NUMBER => {
-                let token = self.advance();
-                let s = token
+                let n = token
                     .literal
                     .as_deref()
-                    .ok_or_else(|| "Expected number literal".to_string())?;
-
-                let number = s
+                    .ok_or_else(|| self.error("Expected number literal"))?
                     .parse::<f64>()
-                    .map_err(|e| format!("Invalid number literal '{s}': {e}"))?;
-
-                Ok(Expr::Literal {
-                    value: LiteralValue::Number(number),
-                })
+                    .map_err(|_| self.error("Invalid number literal"))?;
+                Expr::Literal(LiteralValue::Number(n))
             }
+
             TokenType::STRING => {
-                let token = self.advance();
                 let s = token
                     .literal
-                    .as_deref()
-                    .ok_or_else(|| "Expected string literal".to_string())?
-                    .to_string();
-                Ok(Expr::Literal {
-                    value: LiteralValue::String(s),
-                })
+                    .clone()
+                    .ok_or_else(|| self.error("Expected string literal"))?;
+                Expr::Literal(LiteralValue::String(s))
             }
 
             TokenType::LEFT_PAREN => {
                 self.advance();
-                let expr = self.expression()?;
-                self.consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.")?;
-
-                Ok(Expr::Grouping {
-                    expression: Box::new(expr),
-                })
+                let inner = self.expression()?;
+                self.consume(TokenType::RIGHT_PAREN, "Expect ')' after expression")?;
+                return Ok(Expr::Grouping(Box::new(inner)));
             }
-            _ => Err(self.error(self.peek().clone(), "Expected expression")),
-        }
+
+            _ => return Err(self.error("Expected expression")),
+        };
+
+        self.advance();
+        Ok(expr)
     }
 
-    // === Parser Navigation ===
+    // === Navigation ===
 
     fn advance(&mut self) -> &Token {
         if !self.is_at_end() {
@@ -100,36 +78,58 @@ impl Parser {
     }
 
     fn is_at_end(&self) -> bool {
-        self.current >= self.tokens.len() || self.tokens[self.current].token_type == TokenType::EOF
+        matches!(
+            self.tokens.get(self.current),
+            None | Some(Token {
+                token_type: TokenType::EOF,
+                ..
+            })
+        )
     }
 
     fn check(&self, token_type: TokenType) -> bool {
-        if self.is_at_end() {
-            return false;
-        }
-        self.peek().token_type == token_type
+        !self.is_at_end() && self.peek().token_type == token_type
     }
 
-    // === Error ===
+    // === Errors ===
 
-    fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token, String> {
+    fn consume(&mut self, token_type: TokenType, message: &str) -> Result<&Token, ParseError> {
         if self.check(token_type) {
-            return Ok(self.advance());
-        }
-
-        Err(self.error(self.peek().clone(), message))
-    }
-
-    fn error(&mut self, token: Token, message: &str) -> String {
-        if token.token_type == TokenType::EOF {
-            self.report(token.line, " at end", message);
+            Ok(self.advance())
         } else {
-            self.report(token.line, &format!(" at '{}'", token.lexeme), message);
+            Err(self.error(message))
         }
-        message.to_string()
     }
 
-    fn report(&mut self, line: usize, where_msg: &str, message: &str) {
-        eprintln!("[line {}] Error:{} {}", line, where_msg, message);
+    fn error(&self, message: &str) -> ParseError {
+        let token = self.peek();
+        ParseError {
+            line: token.line,
+            location: if token.token_type == TokenType::EOF {
+                "at end".to_string()
+            } else {
+                format!("at '{}'", token.lexeme)
+            },
+            message: message.to_string(),
+        }
     }
 }
+
+#[derive(Debug)]
+pub struct ParseError {
+    pub line: usize,
+    pub location: String,
+    pub message: String,
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[line {}] Error {}: {}",
+            self.line, self.location, self.message
+        )
+    }
+}
+
+impl std::error::Error for ParseError {}
