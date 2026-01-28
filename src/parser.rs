@@ -17,7 +17,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.term()
+        self.comparison()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -77,35 +77,48 @@ impl Parser {
 
     fn factor(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary()?;
-
         while self.match_any(&[TokenType::STAR, TokenType::SLASH]) {
             let operator = self.previous().clone();
             let right = self.unary()?;
-
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
             };
         }
-
         Ok(expr)
     }
 
     fn term(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.factor()?;
-
         while self.match_any(&[TokenType::PLUS, TokenType::MINUS]) {
             let operator = self.previous().clone();
             let right = self.factor()?;
-
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
             };
         }
+        Ok(expr)
+    }
 
+    fn comparison(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.term()?;
+        while self.match_any(&[
+            TokenType::GREATER,
+            TokenType::GREATER_EQUAL,
+            TokenType::LESS,
+            TokenType::LESS_EQUAL,
+        ]) {
+            let operator = self.previous().clone();
+            let right = self.term()?;
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            };
+        }
         Ok(expr)
     }
 
