@@ -17,7 +17,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.unary()
+        self.factor()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -73,6 +73,23 @@ impl Parser {
         }
 
         self.primary()
+    }
+
+    fn factor(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.unary()?;
+
+        while self.match_any(&[TokenType::STAR, TokenType::SLASH]) {
+            let operator = self.previous().clone();
+            let right = self.unary()?;
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
     }
 
     // === Navigation ===
