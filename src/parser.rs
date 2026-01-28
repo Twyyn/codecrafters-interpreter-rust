@@ -17,7 +17,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.comparison()
+        self.equality()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -122,6 +122,19 @@ impl Parser {
         Ok(expr)
     }
 
+    fn equality(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.comparison()?;
+        while self.match_any(&[TokenType::BANG_EQUAL, TokenType::EQUAL_EQUAL]) {
+            let operator = self.previous().clone();
+            let right = self.comparison()?;
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
     // === Navigation ===
 
     fn advance(&mut self) -> &Token {
