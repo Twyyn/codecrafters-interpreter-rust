@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, LiteralValue},
+    ast::{Expr, LiteralValue, Statement},
     token::{Token, TokenType},
 };
 
@@ -82,6 +82,21 @@ impl Interpreter {
                     TokenType::BANG => Ok(LiteralValue::Boolean(!Self::is_truthy(&right))),
                     _ => unreachable!(),
                 }
+            }
+        }
+    }
+
+    pub fn run(statement: Statement) -> Result<(), RuntimeError> {
+        match statement {
+            Statement::Print(expr) => {
+                let value = Self::evaluate(expr)?;
+                println!("{}", value.as_string());
+                Ok(())
+            }
+            Statement::Expression(expr) => {
+                let value = Self::evaluate(expr)?;
+                println!("{}", value.as_string());
+                Ok(())
             }
         }
     }

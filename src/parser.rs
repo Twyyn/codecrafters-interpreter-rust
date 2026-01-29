@@ -1,4 +1,4 @@
-use crate::ast::{Expr, LiteralValue};
+use crate::ast::{Expr, LiteralValue, Statement};
 use crate::token::{Token, TokenType};
 
 #[derive(Debug)]
@@ -14,6 +14,36 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<Expr, ParseError> {
         self.expression()
+    }
+
+    pub fn parse_statements(&mut self) -> Result<Vec<Statement>, ParseError> {
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&mut self) -> Result<Statement, ParseError> {
+        if self.match_any(&[TokenType::PRINT]) {
+            return self.print_statement();
+        }
+
+        self.expression_statement()
+    }
+
+    fn print_statement(&mut self) -> Result<Statement, ParseError> {
+        let value = self.expression()?;
+        self.consume(TokenType::SEMICOLON, "Expect ';' after value.")?;
+        Ok(Statement::Print(value))
+    }
+
+    fn expression_statement(&mut self) -> Result<Statement, ParseError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::SEMICOLON, "Expect ';' after expression.")?;
+        Ok(Statement::Expression(expr))
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {

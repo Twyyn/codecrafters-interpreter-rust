@@ -24,6 +24,11 @@ pub enum LiteralValue {
     Nil,
 }
 
+pub enum Statement {
+    Print(Expr),
+    Expression(Expr),
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
