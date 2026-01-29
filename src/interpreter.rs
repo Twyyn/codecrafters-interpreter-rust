@@ -41,6 +41,26 @@ impl Interpreter {
                         let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
                         Ok(LiteralValue::Number(left / right))
                     }
+
+                    // Comparison
+                    TokenType::GREATER => {
+                        let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
+                        Ok(LiteralValue::Boolean(left > right))
+                    }
+                    TokenType::GREATER_EQUAL => {
+                        let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
+                        Ok(LiteralValue::Boolean(left >= right))
+                    }
+                    TokenType::LESS => {
+                        let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
+                        Ok(LiteralValue::Boolean(left < right))
+                    }
+                    TokenType::LESS_EQUAL => {
+                        let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
+                        Ok(LiteralValue::Boolean(left <= right))
+                    }
+
+                    // Equality
                     _ => unreachable!(),
                 }
             }
@@ -62,6 +82,16 @@ impl Interpreter {
 
     fn is_truthy(value: &LiteralValue) -> bool {
         !matches!(value, LiteralValue::Nil | LiteralValue::Boolean(false))
+    }
+
+    fn is_equal(left: &LiteralValue, right: &LiteralValue) -> bool {
+        match (left, right) {
+            (LiteralValue::Number(left), LiteralValue::Number(right)) => left == right,
+            (LiteralValue::Nil, LiteralValue::Nil) => true,
+            (LiteralValue::Boolean(left), LiteralValue::Boolean(right)) => left == right,
+            (LiteralValue::String(left), LiteralValue::String(right)) => left == right,
+            _ => false,
+        }
     }
 
     fn expect_number(operator: &Token, value: &LiteralValue) -> Result<f64, RuntimeError> {
