@@ -15,15 +15,14 @@ impl Interpreter {
             } => {
                 let left = Self::evaluate(*left)?;
                 let right = Self::evaluate(*right)?;
-
                 match operator.token_type {
                     // Arithmetic
                     TokenType::PLUS => match (&left, &right) {
-                        (LiteralValue::Number(l), LiteralValue::Number(r)) => {
-                            Ok(LiteralValue::Number(l + r))
+                        (LiteralValue::Number(left), LiteralValue::Number(right)) => {
+                            Ok(LiteralValue::Number(left + right))
                         }
-                        (LiteralValue::String(l), LiteralValue::String(r)) => {
-                            Ok(LiteralValue::String(format!("{l}{r}")))
+                        (LiteralValue::String(left), LiteralValue::String(right)) => {
+                            Ok(LiteralValue::String(format!("{left}{right}")))
                         }
                         _ => Err(Self::error(
                             &operator,
@@ -37,18 +36,21 @@ impl Interpreter {
             Expr::Literal(value) => Ok(value),
             Expr::Grouping(inner) => Self::evaluate(*inner),
             Expr::Unary { operator, right } => {
-                // let right = Self::evaluate(*right)?;
-                // match operator.token_type {
-                //     TokenType::MINUS => {
-                //         let n = Self::expect_number(&operator, &right)?;
-                //         Ok(LiteralValue::Number(-n))
-                //     }
-                //     TokenType::BANG => Ok(LiteralValue::Boolean(!Self::is_truthy(&right))),
-                //     _ => unreachable!(),
-                // }
-                todo!()
+                let right = Self::evaluate(*right)?;
+                match operator.token_type {
+                    TokenType::MINUS => {
+                        let n = Self::expect_number(&operator, &right)?;
+                        Ok(LiteralValue::Number(-n))
+                    }
+                    TokenType::BANG => Ok(LiteralValue::Boolean(!Self::is_truthy(&right))),
+                    _ => unreachable!(),
+                }
             }
         }
+    }
+
+    fn is_truthy(value: &LiteralValue) -> bool {
+        !matches!(value, LiteralValue::Nil | LiteralValue::Boolean(false))
     }
 
     fn expect_number(operator: &Token, value: &LiteralValue) -> Result<f64, RuntimeError> {
