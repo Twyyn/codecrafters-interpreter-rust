@@ -69,6 +69,7 @@ fn main() {
                     Ok(value) => println!("{}", value.as_string()),
                     Err(e) => {
                         eprintln!("{e}");
+                        process::exit(70);
                     }
                 },
                 Err(e) => {
