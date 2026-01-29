@@ -29,6 +29,10 @@ impl Interpreter {
                             "Operands must be two numbers or two strings.",
                         )),
                     },
+                    TokenType::MINUS => {
+                        let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
+                        Ok(LiteralValue::Number(left - right))
+                    }
                     TokenType::STAR => {
                         let (left, right) = Self::expect_numbers(&operator, &left, &right)?;
                         Ok(LiteralValue::Number(left * right))
