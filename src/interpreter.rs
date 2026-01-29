@@ -61,6 +61,12 @@ impl Interpreter {
                     }
 
                     // Equality
+                    TokenType::EQUAL_EQUAL => {
+                        Ok(LiteralValue::Boolean(Self::is_equal(&left, &right)))
+                    }
+                    TokenType::BANG_EQUAL => {
+                        Ok(LiteralValue::Boolean(!Self::is_equal(&left, &right)))
+                    }
                     _ => unreachable!(),
                 }
             }
