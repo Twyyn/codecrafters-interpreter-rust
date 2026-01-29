@@ -59,3 +59,20 @@ impl Display for LiteralValue {
         }
     }
 }
+
+impl LiteralValue {
+    pub fn as_string(&self) -> String {
+        match self {
+            LiteralValue::Number(n) => {
+                if n.fract() == 0.0 {
+                    format!("{}", *n as i64)
+                } else {
+                    n.to_string()
+                }
+            }
+            LiteralValue::String(s) => s.clone(),
+            LiteralValue::Boolean(b) => b.to_string(),
+            LiteralValue::Nil => "nil".to_string(),
+        }
+    }
+}

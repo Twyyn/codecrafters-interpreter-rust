@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, LiteralValue},
-    token::TokenType,
+    token::{Token, TokenType},
 };
 
 pub struct Interpreter;
@@ -13,46 +13,66 @@ impl Interpreter {
                 operator,
                 right,
             } => {
-                let left = Interpreter::evaluate(*left)?;
-                let right = Interpreter::evaluate(*right)?;
+                let left = Self::evaluate(*left)?;
+                let right = Self::evaluate(*right)?;
 
                 match operator.token_type {
-                    TokenType::PLUS => match (left, right) {
+                    // Arithmetic
+                    TokenType::PLUS => match (&left, &right) {
                         (LiteralValue::Number(l), LiteralValue::Number(r)) => {
                             Ok(LiteralValue::Number(l + r))
                         }
                         (LiteralValue::String(l), LiteralValue::String(r)) => {
-                            Ok(LiteralValue::String(format!("{}{}", l, r)))
+                            Ok(LiteralValue::String(format!("{l}{r}")))
                         }
-                        _ => Err(RuntimeError {
-                            line: operator.line,
-                            message: "Operands must be two numbers or two strings.".to_string(),
-                        }),
+                        _ => Err(Self::error(
+                            &operator,
+                            "Operands must be two numbers or two strings.",
+                        )),
                     },
 
-                    _ => unimplemented!(),
+                    _ => unreachable!(),
                 }
             }
             Expr::Literal(value) => Ok(value),
-            Expr::Grouping(expr) => Interpreter::evaluate(*expr),
+            Expr::Grouping(inner) => Self::evaluate(*inner),
             Expr::Unary { operator, right } => {
-                let right = Interpreter::evaluate(*right)?;
-
-                match operator.token_type {
-                    TokenType::MINUS => match right {
-                        LiteralValue::Number(n) => Ok(LiteralValue::Number(-n)),
-
-                        _ => Err(RuntimeError {
-                            line: operator.line,
-                            message: "Operand must be a number.".to_string(),
-                        }),
-                    },
-                    _ => Err(RuntimeError {
-                        line: operator.line,
-                        message: format!("Unsupported unary operator: {:?}", operator.token_type),
-                    }),
-                }
+                // let right = Self::evaluate(*right)?;
+                // match operator.token_type {
+                //     TokenType::MINUS => {
+                //         let n = Self::expect_number(&operator, &right)?;
+                //         Ok(LiteralValue::Number(-n))
+                //     }
+                //     TokenType::BANG => Ok(LiteralValue::Boolean(!Self::is_truthy(&right))),
+                //     _ => unreachable!(),
+                // }
+                todo!()
             }
+        }
+    }
+
+    fn expect_number(operator: &Token, value: &LiteralValue) -> Result<f64, RuntimeError> {
+        match value {
+            LiteralValue::Number(n) => Ok(*n),
+            _ => Err(Self::error(operator, "Operand must be a number.")),
+        }
+    }
+
+    fn expect_numbers(
+        operator: &Token,
+        left: &LiteralValue,
+        right: &LiteralValue,
+    ) -> Result<(f64, f64), RuntimeError> {
+        match (left, right) {
+            (LiteralValue::Number(l), LiteralValue::Number(r)) => Ok((*l, *r)),
+            _ => Err(Self::error(operator, "Operands must be numbers.")),
+        }
+    }
+
+    fn error(operator: &Token, message: &str) -> RuntimeError {
+        RuntimeError {
+            line: operator.line,
+            message: message.to_string(),
         }
     }
 }

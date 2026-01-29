@@ -14,7 +14,7 @@ fn main() {
     let filename = &args[2];
 
     let source = fs::read_to_string(filename).unwrap_or_else(|e| {
-        eprintln!("Failed to read file {filename}: {e}");
+        eprintln!("Failed to read file {}: {}", filename, e);
         process::exit(66);
     });
 
@@ -66,10 +66,9 @@ fn main() {
             let mut parser = Parser::new(lex_result.tokens);
             match parser.parse() {
                 Ok(expr) => match Interpreter::evaluate(expr) {
-                    Ok(value) => println!("{value}"),
+                    Ok(value) => println!("{}", value.as_string()),
                     Err(e) => {
                         eprintln!("{e}");
-                        process::exit(70);
                     }
                 },
                 Err(e) => {
@@ -81,7 +80,6 @@ fn main() {
 
         _ => {
             eprintln!("Unknown command: {command}");
-            process::exit(64);
         }
     }
 }
