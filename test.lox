@@ -1,1 +1,4 @@
-print;
+27 - 60 >= -99 * 2 / 99 + 76;
+true == true;
+("world" == "bar") == ("baz" != "hello");
+print true;

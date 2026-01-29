@@ -94,8 +94,7 @@ impl Interpreter {
                 Ok(())
             }
             Statement::Expression(expr) => {
-                let value = Self::evaluate(expr)?;
-                println!("{}", value.as_string());
+                Self::evaluate(expr)?;
                 Ok(())
             }
         }
