@@ -100,6 +100,11 @@ impl Interpreter {
                         message: format!("Undefined variable '{}'", name.lexeme),
                     })
             }
+            Expr::Assignment { name, value } => {
+                let value = self.evaluate(*value)?;
+                self.environment.assign(&name.lexeme, value.clone())?;
+                Ok(value)
+            }
         }
     }
 
