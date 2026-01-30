@@ -94,7 +94,6 @@ impl Interpreter {
             Expr::Variable(name) => {
                 self.environment
                     .get(&name.lexeme)
-                    .cloned()
                     .ok_or_else(|| RuntimeError {
                         line: name.line,
                         message: format!("Undefined variable '{}'", name.lexeme),

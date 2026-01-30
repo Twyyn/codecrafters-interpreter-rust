@@ -30,8 +30,12 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<&LiteralValue> {
-        self.values.get(name)
+    pub fn get(&self, name: &str) -> Option<LiteralValue> {
+        if let Some(value) = self.values.get(name) {
+            return Some(value.clone());
+        }
+
+        self.enclosing.as_ref()?.get(name)
     }
 
     pub fn assign(&mut self, name: &str, value: LiteralValue) -> Result<(), RuntimeError> {
