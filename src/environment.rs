@@ -40,8 +40,12 @@ impl Environment {
 
     pub fn assign(&mut self, name: &str, value: LiteralValue) -> Result<(), RuntimeError> {
         if self.values.contains_key(name) {
-            self.define(name.to_owned(), value);
+            self.values.insert(name.to_owned(), value);
             return Ok(());
+        }
+
+        if let Some(enclosing) = &mut self.enclosing {
+            return enclosing.assign(name, value);
         }
 
         Err(RuntimeError {
