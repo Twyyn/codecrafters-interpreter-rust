@@ -51,8 +51,9 @@ fn main() {
             }
 
             let mut parser = Parser::new(lex_result.tokens);
+            let mut interpreter = Interpreter::new();
             match parser.parse() {
-                Ok(expr) => match Interpreter::evaluate(expr) {
+                Ok(expr) => match interpreter.evaluate(expr) {
                     Ok(value) => println!("{}", value.as_string()),
                     Err(e) => {
                         eprintln!("{e}");
@@ -77,6 +78,7 @@ fn main() {
             }
 
             let mut parser = Parser::new(lex_result.tokens);
+            let mut interpreter = Interpreter::new();
             let statements = match parser.parse_statements() {
                 Ok(statements) => statements,
                 Err(e) => {
@@ -86,7 +88,7 @@ fn main() {
             };
 
             for statement in statements {
-                if let Err(e) = Interpreter::run(statement) {
+                if let Err(e) = interpreter.run(statement) {
                     eprintln!("{e}");
                     process::exit(70);
                 }

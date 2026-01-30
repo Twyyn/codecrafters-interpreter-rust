@@ -1,20 +1,28 @@
 use crate::{
     ast::{Expr, LiteralValue, Statement},
+    environment::Environment,
     token::{Token, TokenType},
 };
-
-pub struct Interpreter;
+#[derive(Debug, Default)]
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
-    pub fn evaluate(expr: Expr) -> Result<LiteralValue, RuntimeError> {
+    pub fn new() -> Self {
+        Self {
+            environment: Environment::new(),
+        }
+    }
+    pub fn evaluate(&mut self, expr: Expr) -> Result<LiteralValue, RuntimeError> {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
             } => {
-                let left = Self::evaluate(*left)?;
-                let right = Self::evaluate(*right)?;
+                let left = self.evaluate(*left)?;
+                let right = self.evaluate(*right)?;
                 match operator.token_type {
                     // Arithmetic
                     TokenType::PLUS => match (&left, &right) {
@@ -71,9 +79,9 @@ impl Interpreter {
                 }
             }
             Expr::Literal(value) => Ok(value),
-            Expr::Grouping(inner) => Self::evaluate(*inner),
+            Expr::Grouping(inner) => self.evaluate(*inner),
             Expr::Unary { operator, right } => {
-                let right = Self::evaluate(*right)?;
+                let right = self.evaluate(*right)?;
                 match operator.token_type {
                     TokenType::MINUS => {
                         let n = Self::expect_number(&operator, &right)?;
@@ -83,18 +91,37 @@ impl Interpreter {
                     _ => unreachable!(),
                 }
             }
+            Expr::Variable(name) => {
+                self.environment
+                    .get(&name.lexeme)
+                    .cloned()
+                    .ok_or_else(|| RuntimeError {
+                        line: name.line,
+                        message: format!("Undefined variable '{}'", name.lexeme),
+                    })
+            }
         }
     }
 
-    pub fn run(statement: Statement) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, statement: Statement) -> Result<(), RuntimeError> {
         match statement {
             Statement::Print(expr) => {
-                let value = Self::evaluate(expr)?;
+                let value = self.evaluate(expr)?;
                 println!("{}", value.as_string());
                 Ok(())
             }
             Statement::Expression(expr) => {
-                Self::evaluate(expr)?;
+                self.evaluate(expr)?;
+                Ok(())
+            }
+            Statement::Var { name, initializer } => {
+                let value = if let Some(initializer) = initializer {
+                    self.evaluate(initializer)?
+                } else {
+                    LiteralValue::Nil
+                };
+
+                self.environment.define(name.lexeme.clone(), value);
                 Ok(())
             }
         }

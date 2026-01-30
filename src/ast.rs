@@ -14,6 +14,7 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
+    Variable(Token),
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +28,10 @@ pub enum LiteralValue {
 pub enum Statement {
     Print(Expr),
     Expression(Expr),
+    Var {
+        name: Token,
+        initializer: Option<Expr>,
+    },
 }
 
 impl Display for Expr {
@@ -44,6 +49,7 @@ impl Display for Expr {
             Expr::Unary { operator, right } => {
                 write!(f, "({} {right})", operator.lexeme)
             }
+            Expr::Variable(name) => write!(f, "{}", name.lexeme),
         }
     }
 }

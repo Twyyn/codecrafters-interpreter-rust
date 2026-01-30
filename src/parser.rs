@@ -30,10 +30,28 @@ impl Parser {
         if self.match_any(&[TokenType::PRINT]) {
             return self.print_statement();
         }
+        if self.match_any(&[TokenType::VAR]) {
+            return self.var_statement();
+        }
 
         self.expression_statement()
     }
-
+    fn var_statement(&mut self) -> Result<Statement, ParseError> {
+        let name = self
+            .consume(TokenType::IDENTIFIER, "Expect variable name.")?
+            .clone();
+        let initializer = if self.check(TokenType::EQUAL) {
+            self.advance();
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after variable declaration.",
+        )?;
+        Ok(Statement::Var { name, initializer })
+    }
     fn print_statement(&mut self) -> Result<Statement, ParseError> {
         let value = self.expression()?;
         self.consume(TokenType::SEMICOLON, "Expect ';' after value.")?;
@@ -82,6 +100,12 @@ impl Parser {
                 let inner = self.expression()?;
                 self.consume(TokenType::RIGHT_PAREN, "Expect ')' after expression")?;
                 return Ok(Expr::Grouping(Box::new(inner)));
+            }
+
+            TokenType::IDENTIFIER => {
+                let name = self.peek().clone();
+                self.advance();
+                return Ok(Expr::Variable(name));
             }
 
             _ => return Err(self.error("Expected expression")),
