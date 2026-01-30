@@ -1,4 +1,8 @@
 {
-    var hello = "baz";
-    print hello;
+    var world = "before";
+    {
+        var world = "after";
+        print world;
+    }
+    print world;
 }
