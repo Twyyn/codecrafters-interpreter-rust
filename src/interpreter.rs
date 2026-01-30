@@ -104,6 +104,31 @@ impl Interpreter {
                 self.environment.assign(&name.lexeme, value.clone())?;
                 Ok(value)
             }
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => {
+                let left = self.evaluate(*left)?;
+
+                match operator.token_type {
+                    TokenType::OR => {
+                        if Self::is_truthy(&left) {
+                            Ok(left)
+                        } else {
+                            self.evaluate(*right)
+                        }
+                    }
+                    TokenType::AND => {
+                        if !Self::is_truthy(&left) {
+                            Ok(left)
+                        } else {
+                            self.evaluate(*right)
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
         }
     }
 

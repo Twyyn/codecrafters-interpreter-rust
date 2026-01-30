@@ -19,6 +19,11 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    Logical {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +67,13 @@ impl Display for Expr {
             Expr::Variable(name) => write!(f, "{}", name.lexeme),
             Expr::Assignment { name, value } => {
                 write!(f, "(= {} {value})", name.lexeme)
+            }
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => {
+                write!(f, "({} {left} {right})", operator.lexeme)
             }
         }
     }

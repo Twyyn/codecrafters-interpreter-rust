@@ -153,7 +153,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, ParseError> {
-        let expr = self.equality()?;
+        let expr = self.logical_or()?;
 
         if self.match_any(&[TokenType::EQUAL]) {
             let value = self.assignment()?;
@@ -164,8 +164,11 @@ impl Parser {
                     value: Box::new(value),
                 });
             }
-
             return Err(self.error("Invalid assignment target."));
+        }
+
+        if self.match_any(&[TokenType::OR]) {
+            self.logical_or()?;
         }
 
         Ok(expr)
@@ -242,6 +245,35 @@ impl Parser {
             then_branch,
             else_branch,
         })
+    }
+    fn logical_or(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.logical_and()?;
+
+        while self.match_any(&[TokenType::OR]) {
+            let operator = self.previous().clone();
+            let right = self.logical_and()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    fn logical_and(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.equality()?;
+
+        while self.match_any(&[TokenType::AND]) {
+            let operator = self.previous().clone();
+            let right = self.equality()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
     }
     // === Navigation ===
 
