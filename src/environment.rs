@@ -3,26 +3,39 @@ use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Environment {
-    variables: HashMap<String, LiteralValue>,
+    values: HashMap<String, LiteralValue>,
+    enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
+            values: HashMap::new(),
+            enclosing: None,
         }
     }
 
+    pub fn with_enclosing(enclosing: Environment) -> Self {
+        Self {
+            values: HashMap::new(),
+            enclosing: Some(Box::new(enclosing)),
+        }
+    }
+
+    pub fn into_enclosing(self) -> Option<Environment> {
+        self.enclosing.map(|boxed| *boxed)
+    }
+
     pub fn define(&mut self, name: String, value: LiteralValue) {
-        self.variables.insert(name, value);
+        self.values.insert(name, value);
     }
 
     pub fn get(&self, name: &str) -> Option<&LiteralValue> {
-        self.variables.get(name)
+        self.values.get(name)
     }
 
     pub fn assign(&mut self, name: &str, value: LiteralValue) -> Result<(), RuntimeError> {
-        if self.variables.contains_key(name) {
+        if self.values.contains_key(name) {
             self.define(name.to_owned(), value);
             return Ok(());
         }

@@ -129,6 +129,16 @@ impl Interpreter {
                 self.environment.define(name.lexeme.clone(), value);
                 Ok(())
             }
+            Statement::Block(statements) => {
+                let previous = std::mem::take(&mut self.environment);
+                self.environment = Environment::with_enclosing(previous);
+
+                let result = statements.into_iter().try_for_each(|s| self.run(s));
+
+                let environment = std::mem::take(&mut self.environment);
+                self.environment = environment.into_enclosing().unwrap();
+                result
+            }
         }
     }
 

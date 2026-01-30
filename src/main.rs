@@ -40,6 +40,7 @@ fn main() {
                 }
             }
         }
+
         "evaluate" => {
             let lex_result = Lexer::new(&args.source).scan_tokens();
 

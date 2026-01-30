@@ -36,6 +36,7 @@ pub enum Statement {
         name: Token,
         initializer: Option<Expr>,
     },
+    Block(Vec<Statement>),
 }
 
 impl Display for Expr {

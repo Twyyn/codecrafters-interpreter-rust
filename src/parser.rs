@@ -177,7 +177,9 @@ impl Parser {
         if self.match_any(&[TokenType::VAR]) {
             return self.var_statement();
         }
-
+        if self.match_any(&[TokenType::LEFT_BRACE]) {
+            return Ok(Statement::Block(self.block()?));
+        }
         self.expression_statement()
     }
 
@@ -197,6 +199,15 @@ impl Parser {
         )?;
         Ok(Statement::Var { name, initializer })
     }
+    fn block(&mut self) -> Result<Vec<Statement>, ParseError> {
+        let mut statements: Vec<Statement> = Vec::new();
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+        self.consume(TokenType::RIGHT_BRACE, "Expect '}' after block.")?;
+        Ok(statements)
+    }
+
     fn print_statement(&mut self) -> Result<Statement, ParseError> {
         let value = self.expression()?;
         self.consume(TokenType::SEMICOLON, "Expect ';' after value.")?;
