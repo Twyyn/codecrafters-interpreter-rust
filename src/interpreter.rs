@@ -138,6 +138,20 @@ impl Interpreter {
                 self.environment = environment.into_enclosing().unwrap();
                 result
             }
+            Statement::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let condition = self.evaluate(condition)?;
+                if Self::is_truthy(&condition) {
+                    self.run(*then_branch)
+                } else if let Some(else_branch) = else_branch {
+                    self.run(*else_branch)
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 

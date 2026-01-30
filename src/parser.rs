@@ -180,6 +180,9 @@ impl Parser {
         if self.match_any(&[TokenType::LEFT_BRACE]) {
             return Ok(Statement::Block(self.block()?));
         }
+        if self.match_any(&[TokenType::IF]) {
+            return self.if_statement();
+        }
         self.expression_statement()
     }
 
@@ -199,14 +202,6 @@ impl Parser {
         )?;
         Ok(Statement::Var { name, initializer })
     }
-    fn block(&mut self) -> Result<Vec<Statement>, ParseError> {
-        let mut statements: Vec<Statement> = Vec::new();
-        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
-            statements.push(self.statement()?);
-        }
-        self.consume(TokenType::RIGHT_BRACE, "Expect '}' after block.")?;
-        Ok(statements)
-    }
 
     fn print_statement(&mut self) -> Result<Statement, ParseError> {
         let value = self.expression()?;
@@ -220,6 +215,34 @@ impl Parser {
         Ok(Statement::Expression(expr))
     }
 
+    fn block(&mut self) -> Result<Vec<Statement>, ParseError> {
+        let mut statements: Vec<Statement> = Vec::new();
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+        self.consume(TokenType::RIGHT_BRACE, "Expect '}' after block.")?;
+        Ok(statements)
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, ParseError> {
+        self.consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.")?;
+
+        let then_branch = Box::new(self.statement()?);
+
+        let else_branch = if self.match_any(&[TokenType::ELSE]) {
+            Some(Box::new(self.statement()?))
+        } else {
+            None
+        };
+
+        Ok(Statement::If {
+            condition,
+            then_branch,
+            else_branch,
+        })
+    }
     // === Navigation ===
 
     fn advance(&mut self) -> &Token {

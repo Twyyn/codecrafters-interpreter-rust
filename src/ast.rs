@@ -37,6 +37,11 @@ pub enum Statement {
         initializer: Option<Expr>,
     },
     Block(Vec<Statement>),
+    If {
+        condition: Expr,
+        then_branch: Box<Statement>,
+        else_branch: Option<Box<Statement>>,
+    },
 }
 
 impl Display for Expr {
