@@ -22,7 +22,7 @@ impl<'a> Lexer<'a> {
             if let Some(c) = self.cursor.advance() {
                 match c {
                     '(' => self.add_token(TokenKind::LeftParen, "("),
-                    ')' => self.add_token(TokenKind::LeftParen, ")"),
+                    ')' => self.add_token(TokenKind::RightParen, ")"),
                     '{' => self.add_token(TokenKind::LeftBrace, "{"),
                     '}' => self.add_token(TokenKind::RightBrace, "}"),
 
