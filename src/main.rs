@@ -19,6 +19,7 @@ fn main() {
 
             if let Err(e) = run_file(command, filename) {
                 eprintln!("{e}");
+                std::process::exit(65);
             }
         }
         _ => {
