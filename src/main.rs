@@ -11,6 +11,7 @@ fn main() {
             let command = &args[1];
             if let Err(e) = run_prompt(command) {
                 eprintln!("{e}");
+                std::process::exit(1);
             }
         }
         3 => {
