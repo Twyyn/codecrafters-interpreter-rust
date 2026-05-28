@@ -23,8 +23,8 @@ impl<'a> Lexer<'a> {
                 match c {
                     '(' => self.add_token(TokenKind::LeftParen, "("),
                     ')' => self.add_token(TokenKind::LeftParen, ")"),
-                    '{' => self.add_token(TokenKind::LeftBracket, "{"),
-                    '}' => self.add_token(TokenKind::RightBracket, "}"),
+                    '{' => self.add_token(TokenKind::LeftBrace, "{"),
+                    '}' => self.add_token(TokenKind::RightBrace, "}"),
 
                     _ => {
                         return Err(InterpreterError::Lex {
