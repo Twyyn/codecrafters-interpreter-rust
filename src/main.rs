@@ -8,7 +8,7 @@ fn main() {
 
     match args.len() {
         1 => {
-            if let Err(e) = run_prompt(command) {
+            if let Err(e) = run_prompt() {
                 eprintln!("{e}");
                 std::process::exit(1);
             }
