@@ -44,6 +44,7 @@ impl<'a> Lexer<'a> {
                 // c if c.is_ascii_digit() => {
                 //     while let
                 // }
+                ' ' | '\r' | '\t' | '\n' => {}
                 _ => {
                     return Err(InterpreterError::Lex {
                         line: self.cursor.line,
