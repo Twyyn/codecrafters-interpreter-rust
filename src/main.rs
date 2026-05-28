@@ -7,8 +7,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     match args.len() {
-        2 => {
-            let command = &args[1];
+        1 => {
             if let Err(e) = run_prompt(command) {
                 eprintln!("{e}");
                 std::process::exit(1);
