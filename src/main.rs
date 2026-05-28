@@ -1,12 +1,21 @@
 #![allow(unused_variables)]
+use codecrafters_interpreter::errors::InterpreterError;
 use std::env;
 use std::fs;
 
 fn main() {
+    if let Err(e) = run() {
+        eprintln!("{e}");
+        std::process::exit(1)
+    }
+}
+
+fn run() -> Result<(), InterpreterError> {
     let args: Vec<String> = env::args().collect();
+
     if args.len() < 3 {
         eprintln!("Usage: {} tokenize <filename>", args[0]);
-        return;
+        std::process::exit(1);
     }
 
     let command = &args[1];
@@ -14,23 +23,20 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            eprintln!("Logs from your program will appear here!");
+            let file_contents = fs::read_to_string(filename)
+                .map_err(|e| InterpreterError::FileRead(filename.into(), e))?;
 
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
-
-            // TODO: Uncomment the code below to pass the first stage
-            // if !file_contents.is_empty() {
-            //     panic!("Scanner not implemented");
-            // } else {
-            //     println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
-            // }
+            if file_contents.is_empty() {
+                println!("EOF  null");
+            } else {
+                panic!("Scanner not implemented");
+            }
         }
+
         _ => {
-            eprintln!("Unknown command: {}", command);
+            eprintln!("Unknown command: {command}");
         }
     }
+
+    Ok(())
 }
