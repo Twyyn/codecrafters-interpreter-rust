@@ -45,7 +45,7 @@ fn run(command: &str, src: &str) -> Result<(), InterpreterError> {
     }
 }
 
-fn run_prompt(command: &str) -> Result<(), InterpreterError> {
+fn run_prompt() -> Result<(), InterpreterError> {
     let stdin = io::stdin();
     let mut input = String::new();
 
@@ -65,7 +65,7 @@ fn run_prompt(command: &str) -> Result<(), InterpreterError> {
             continue;
         }
 
-        if let Err(e) = run(command, line) {
+        if let Err(e) = run("tokenize", line) {
             eprintln!("{e}");
         }
     }
