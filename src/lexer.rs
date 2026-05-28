@@ -1,4 +1,7 @@
-use crate::token::{Token, TokenKind};
+use crate::{
+    errors::InterpreterError,
+    token::{Token, TokenKind},
+};
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -14,19 +17,26 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn scan_tokens(mut self) -> Vec<Token<'a>> {
+    pub fn scan_tokens(mut self) -> Result<Vec<Token<'a>>, InterpreterError> {
         while !self.cursor.is_at_end() {
             if let Some(c) = self.cursor.advance() {
                 match c {
                     '(' => self.add_token(TokenKind::LeftParen, "("),
-                    ')' => self.add_token(TokenKind::RightParen, ")"),
+                    ')' => self.add_token(TokenKind::LeftParen, ")"),
+                    '}' => self.add_token(TokenKind::LeftBracket, "}"),
+                    '{' => self.add_token(TokenKind::RightBracket, "{"),
 
-                    _ => {}
+                    _ => {
+                        return Err(InterpreterError::Lex {
+                            line: self.cursor.line,
+                            message: format!("Unexpected character: '{c}'"),
+                        });
+                    }
                 }
             }
         }
         self.add_token(TokenKind::EOF, "");
-        self.tokens
+        Ok(self.tokens)
     }
 
     fn add_token(&mut self, kind: TokenKind, lexeme: &'a str) {

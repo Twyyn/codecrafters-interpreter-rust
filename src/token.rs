@@ -5,6 +5,7 @@ pub struct Token<'a> {
     kind: TokenKind,
     lexeme: &'a str,
     literal: Option<Literal>,
+    #[allow(unused)]
     line: usize,
 }
 
@@ -37,6 +38,9 @@ impl fmt::Display for Token<'_> {
 pub enum TokenKind {
     LeftParen,
     RightParen,
+    LeftBracket,
+    RightBracket,
+
     EOF,
 }
 
@@ -45,6 +49,9 @@ impl fmt::Display for TokenKind {
         let s = match self {
             Self::LeftParen => "LEFT_PAREN",
             Self::RightParen => "RIGHT_PAREN",
+            Self::LeftBracket => "LEFT_BRACKET",
+            Self::RightBracket => "RIGHT_BRACKET",
+
             Self::EOF => "EOF",
         };
 
