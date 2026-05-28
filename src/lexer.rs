@@ -46,11 +46,10 @@ impl<'a> Lexer<'a> {
                 // }
                 ' ' | '\r' | '\t' | '\n' => {}
                 _ => {
-                    let error = InterpreterError::Lex {
+                    return Err(InterpreterError::Lex {
                         line: self.cursor.line,
                         message: format!("Unexpected character: {c}"),
-                    };
-                    eprintln!("{error}");
+                    });
                 }
             }
         }
