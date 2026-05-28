@@ -38,8 +38,8 @@ impl fmt::Display for Token<'_> {
 pub enum TokenKind {
     LeftParen,
     RightParen,
-    LeftBracket,
-    RightBracket,
+    LeftBrace,
+    RightBrace,
 
     EOF,
 }
@@ -49,8 +49,8 @@ impl fmt::Display for TokenKind {
         let s = match self {
             Self::LeftParen => "LEFT_PAREN",
             Self::RightParen => "RIGHT_PAREN",
-            Self::LeftBracket => "LEFT_BRACKET",
-            Self::RightBracket => "RIGHT_BRACKET",
+            Self::LeftBrace => "LEFT_BRACE",
+            Self::RightBrace => "RIGHT_BRACE",
 
             Self::EOF => "EOF",
         };
