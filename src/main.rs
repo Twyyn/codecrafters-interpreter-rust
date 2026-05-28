@@ -1,12 +1,11 @@
 #![allow(unused_variables)]
-use codecrafters_interpreter::errors::InterpreterError;
+use codecrafters_interpreter::{errors::InterpreterError, lexer::Lexer};
 use std::env;
 use std::fs;
 
 fn main() {
     if let Err(e) = run() {
         eprintln!("{e}");
-        std::process::exit(1)
     }
 }
 
@@ -26,10 +25,8 @@ fn run() -> Result<(), InterpreterError> {
             let file_contents = fs::read_to_string(filename)
                 .map_err(|e| InterpreterError::FileRead(filename.into(), e))?;
 
-            if file_contents.is_empty() {
-                println!("EOF  null");
-            } else {
-                panic!("Scanner not implemented");
+            for token in Lexer::new(&file_contents).scan_tokens() {
+                println!("{token}");
             }
         }
 
