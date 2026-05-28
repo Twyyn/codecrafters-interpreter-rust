@@ -8,6 +8,7 @@ pub struct Lexer<'a> {
     cursor: Cursor<'a>,
     tokens: Vec<Token<'a>>,
     start: usize,
+    had_error: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -16,10 +17,11 @@ impl<'a> Lexer<'a> {
             cursor: Cursor::new(src),
             tokens: Vec::new(),
             start: 0,
+            had_error: false,
         }
     }
 
-    pub fn scan_tokens(mut self) -> Result<Vec<Token<'a>>, InterpreterError> {
+    pub fn scan_tokens(mut self) -> Result<(Vec<Token<'a>>, bool), InterpreterError> {
         loop {
             self.start = self.cursor.position();
 
@@ -46,17 +48,22 @@ impl<'a> Lexer<'a> {
                 // }
                 ' ' | '\r' | '\t' | '\n' => {}
                 _ => {
-                    return Err(InterpreterError::Lex {
+                    self.had_error = true;
+
+                    let error = InterpreterError::Lex {
                         line: self.cursor.line,
                         message: format!("Unexpected character: {c}"),
-                    });
+                    };
+
+                    eprintln!("{error}");
                 }
             }
         }
 
         self.tokens
             .push(Token::new(TokenKind::EOF, "", None, self.cursor.line));
-        Ok(self.tokens)
+
+        Ok((self.tokens, self.had_error))
     }
 
     fn add_token(&mut self, kind: TokenKind) {

@@ -19,7 +19,7 @@ fn main() {
 
             if let Err(e) = run_file(command, filename) {
                 eprintln!("{e}");
-                std::process::exit(65);
+                std::process::exit(1);
             }
         }
         _ => {
@@ -33,9 +33,13 @@ fn main() {
 fn run(command: &str, src: &str) -> Result<(), InterpreterError> {
     match command {
         "tokenize" => {
-            let tokens = Lexer::new(src).scan_tokens()?;
+            let (tokens, had_error) = Lexer::new(src).scan_tokens()?;
             for token in tokens {
                 println!("{token}");
+            }
+
+            if had_error {
+                std::process::exit(65);
             }
 
             Ok(())
