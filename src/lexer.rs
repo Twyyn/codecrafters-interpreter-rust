@@ -80,12 +80,20 @@ impl<'a> Lexer<'a> {
                     self.add_token(kind);
                 }
 
+                c if c.is_ascii_digit() => {
+                    if let Err(e) = self.number() {
+                        eprintln!("{e}");
+                        had_error = true;
+                    }
+                }
+
                 '"' => {
                     if let Err(e) = self.string() {
                         eprintln!("{e}");
                         had_error = true;
                     }
                 }
+
                 ' ' | '\r' | '\t' | '\n' => {}
 
                 _ => {
@@ -118,6 +126,32 @@ impl<'a> Lexer<'a> {
         ));
     }
 
+    fn number(&mut self) -> Result<(), LexError> {
+        while self.cursor.peek().is_some_and(|c| c.is_ascii_digit()) {
+            self.cursor.advance();
+        }
+
+        if self.cursor.peek() == Some('.')
+            && self.cursor.peek_next().is_some_and(|c| c.is_ascii_digit())
+        {
+            self.cursor.advance();
+            while self.cursor.peek().is_some_and(|c| c.is_ascii_digit()) {
+                self.cursor.advance();
+            }
+        }
+
+        let lexeme = self.cursor.slice(self.current_position);
+
+        self.tokens.push(Token::new(
+            TokenKind::Number,
+            lexeme,
+            Some(Literal::Number(lexeme.parse::<f64>()?)),
+            self.cursor.line,
+        ));
+
+        Ok(())
+    }
+
     fn string(&mut self) -> Result<(), LexError> {
         while let Some(c) = self.cursor.peek() {
             if c == '"' {
@@ -138,7 +172,7 @@ impl<'a> Lexer<'a> {
         let value = &lexeme[1..lexeme.len() - 1];
 
         self.tokens.push(Token::new(
-            TokenKind::StringLiteral,
+            TokenKind::String,
             lexeme,
             Some(Literal::String(String::from(value))),
             self.cursor.line,
@@ -194,6 +228,11 @@ impl<'a> Cursor<'a> {
             false
         }
     }
+    pub fn peek_next(&mut self) -> Option<char> {
+        let mut lookahead = self.src[self.position..].char_indices();
+        lookahead.next();
+        lookahead.next().map(|(_, c)| c)
+    }
 
     pub fn peek(&mut self) -> Option<char> {
         self.iter.peek().map(|&(_, c)| c)
@@ -214,4 +253,6 @@ pub enum LexError {
     UnexpectedChar { line: usize, c: char },
     #[error("[line {line}] Error: Unterminated string.")]
     UnterminatedString { line: usize },
+    #[error("{0}")]
+    FloatParse(#[from] std::num::ParseFloatError),
 }

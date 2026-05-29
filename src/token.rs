@@ -58,7 +58,9 @@ pub enum TokenKind {
     LessEqual,
     GreaterEqual,
 
-    StringLiteral,
+    String,
+    Number,
+    Nil,
 
     EOF,
 }
@@ -88,7 +90,9 @@ impl fmt::Display for TokenKind {
             Self::LessEqual => "LESS_EQUAL",
             Self::GreaterEqual => "GREATER_EQUAL",
 
-            Self::StringLiteral => "STRING",
+            Self::String => "STRING",
+            Self::Number => "NUMBER",
+            Self::Nil => "NIL",
 
             Self::EOF => "EOF",
         };
@@ -107,7 +111,13 @@ pub enum Literal {
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Number(n) => write!(f, "{n}"),
+            Self::Number(n) => {
+                if n.fract() == 0.0 {
+                    write!(f, "{n:.1}")
+                } else {
+                    write!(f, "{n}")
+                }
+            }
             Self::String(s) => write!(f, "{s}"),
             Self::Nil => write!(f, "null"),
         }
