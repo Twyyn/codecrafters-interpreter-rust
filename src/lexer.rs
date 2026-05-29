@@ -212,6 +212,6 @@ impl<'a> Cursor<'a> {
 pub enum LexError {
     #[error("[line {line}] Error: Unexpected character: {c}")]
     UnexpectedChar { line: usize, c: char },
-    #[error("[line {line}] Error: Unterminated string")]
+    #[error("[line {line}] Error: Unterminated string.")]
     UnterminatedString { line: usize },
 }
