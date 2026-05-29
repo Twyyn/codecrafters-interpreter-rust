@@ -8,9 +8,9 @@ pub enum InterpreterError {
     #[error("Failed to read '{0}': {1}")]
     FileRead(String, #[source] std::io::Error),
 
-    #[error("[line {line}] Error: {message}")]
-    Lex { line: usize, message: String },
-
     #[error("Unknown command: {0}")]
     UnknownCommand(String),
+
+    #[error("{0}")]
+    Lex(#[from] crate::lexer::LexError),
 }

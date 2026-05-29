@@ -4,45 +4,46 @@ use std::fs;
 use std::io::{self, Write};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let mut args = env::args();
+    let program = args.next();
 
-    match args.len() {
-        1 => {
+    match (args.next(), args.next()) {
+        (None, None) => {
             if let Err(e) = run_prompt() {
                 eprintln!("{e}");
-                std::process::exit(1);
             }
         }
-        3 => {
-            let command = &args[1];
-            let filename = &args[2];
 
-            if let Err(e) = run_file(command, filename) {
+        (Some(command), Some(filename)) => {
+            if let Err(e) = run_file(&command, &filename) {
                 eprintln!("{e}");
-                std::process::exit(1);
             }
         }
+
         _ => {
-            eprintln!("Usage: {} [tokenize <filename>]", args[0]);
+            eprintln!(
+                "Usage: {} [tokenize <filename>]",
+                program.unwrap_or_default()
+            );
             std::process::exit(1);
         }
     }
 }
 
 #[allow(clippy::single_match_else)]
-fn run(command: &str, src: &str) -> Result<(), InterpreterError> {
+fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
     match command {
         "tokenize" => {
-            let (tokens, had_error) = Lexer::new(src).scan_tokens()?;
+            let (tokens, had_error) = match Lexer::new(src).scan_tokens() {
+                Ok(t) => (t, false),
+                Err(t) => (t, true),
+            };
+
             for token in tokens {
                 println!("{token}");
             }
 
-            if had_error {
-                std::process::exit(65);
-            }
-
-            Ok(())
+            Ok(had_error)
         }
 
         _ => Err(InterpreterError::UnknownCommand(command.into())),
@@ -69,9 +70,7 @@ fn run_prompt() -> Result<(), InterpreterError> {
             continue;
         }
 
-        if let Err(e) = run("tokenize", line) {
-            eprintln!("{e}");
-        }
+        let _had_error = run("tokenize", line)?;
     }
 
     Ok(())
@@ -81,5 +80,11 @@ fn run_file(command: &str, filename: &str) -> Result<(), InterpreterError> {
     let src =
         fs::read_to_string(filename).map_err(|e| InterpreterError::FileRead(filename.into(), e))?;
 
-    run(command, &src)
+    let had_error = run(command, &src)?;
+
+    if had_error {
+        std::process::exit(65);
+    }
+
+    Ok(())
 }

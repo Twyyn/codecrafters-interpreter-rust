@@ -49,6 +49,17 @@ pub enum TokenKind {
     Slash,
     Star,
 
+    Bang,
+    Equal,
+    Less,
+    Greater,
+    BangEqual,
+    EqualEqual,
+    LessEqual,
+    GreaterEqual,
+
+    StringLiteral,
+
     EOF,
 }
 
@@ -67,6 +78,17 @@ impl fmt::Display for TokenKind {
             Self::Semicolon => "SEMICOLON",
             Self::Slash => "SLASH",
             Self::Star => "STAR",
+
+            Self::Bang => "BANG",
+            Self::Equal => "EQUAL",
+            Self::Less => "LESS",
+            Self::Greater => "GREATER",
+            Self::BangEqual => "BANG_EQUAL",
+            Self::EqualEqual => "EQUAL_EQUAL",
+            Self::LessEqual => "LESS_EQUAL",
+            Self::GreaterEqual => "GREATER_EQUAL",
+
+            Self::StringLiteral => "STRING",
 
             Self::EOF => "EOF",
         };
