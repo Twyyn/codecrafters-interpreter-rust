@@ -132,7 +132,7 @@ impl<'a> Lexer<'a> {
         while self
             .cursor
             .peek()
-            .is_some_and(|c| c.is_ascii_alphanumeric())
+            .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '_'))
         {
             self.cursor.advance();
         }
@@ -151,11 +151,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn number(&mut self) -> Result<(), LexError> {
-        while self
-            .cursor
-            .peek()
-            .is_some_and(|c| c.is_ascii_digit() || matches!(c, '_'))
-        {
+        while self.cursor.peek().is_some_and(|c| c.is_ascii_digit()) {
             self.cursor.advance();
         }
 
