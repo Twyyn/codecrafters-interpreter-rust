@@ -196,7 +196,7 @@ impl<'a> Lexer<'a> {
         let value = &lexeme[1..lexeme.len() - 1];
 
         self.tokens.push(Token::new(
-            TokenKind::Number,
+            TokenKind::String,
             lexeme,
             Some(Literal::String(String::from(value))),
             self.cursor.line,
