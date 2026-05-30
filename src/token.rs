@@ -3,11 +3,10 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct Token<'a> {
-    kind: TokenKind,
-    lexeme: &'a str,
-    literal: Option<Literal>,
-    #[allow(unused)]
-    line: usize,
+    pub kind: TokenKind,
+    pub lexeme: &'a str,
+    pub literal: Option<Literal>,
+    pub line: usize,
 }
 
 impl<'a> Token<'a> {
@@ -35,7 +34,7 @@ impl fmt::Display for Token<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
     LeftParen,
     RightParen,

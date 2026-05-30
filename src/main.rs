@@ -1,4 +1,4 @@
-use codecrafters_interpreter::{errors::InterpreterError, lexer::Lexer};
+use codecrafters_interpreter::{errors::InterpreterError, lexer::Lexer, parser::Parser};
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -8,8 +8,8 @@ fn main() {
     let program = args.next();
 
     match (args.next(), args.next()) {
-        (None, None) => {
-            if let Err(e) = run_prompt() {
+        (Some(command), None) => {
+            if let Err(e) = run_prompt(&command) {
                 eprintln!("{e}");
             }
         }
@@ -35,8 +35,8 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
     match command {
         "tokenize" => {
             let (tokens, had_error) = match Lexer::new(src).scan_tokens() {
-                Ok(t) => (t, false),
-                Err(t) => (t, true),
+                Ok(tokens) => (tokens, false),
+                Err(tokens) => (tokens, true),
             };
 
             for token in tokens {
@@ -45,12 +45,25 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
 
             Ok(had_error)
         }
+        "parse" => {
+            let (tokens, _err) = match Lexer::new(src).scan_tokens() {
+                Ok(tokens) => (tokens, false),
+                Err(tokens) => (tokens, true),
+            };
+
+            let expressions = Parser::new(&tokens).parse();
+            for expr in expressions {
+                println!("{expr}");
+            }
+
+            Ok(false)
+        }
 
         _ => Err(InterpreterError::UnknownCommand(command.into())),
     }
 }
 
-fn run_prompt() -> Result<(), InterpreterError> {
+fn run_prompt(command: &str) -> Result<(), InterpreterError> {
     let stdin = io::stdin();
     let mut input = String::new();
 
@@ -70,7 +83,7 @@ fn run_prompt() -> Result<(), InterpreterError> {
             continue;
         }
 
-        let _had_error = run("tokenize", line)?;
+        let _had_error = run(command, line)?;
     }
 
     Ok(())

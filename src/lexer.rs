@@ -3,17 +3,17 @@ use thiserror::Error;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
-    cursor: Cursor<'a>,
+    cursor: LexerCursor<'a>,
     tokens: Vec<Token<'a>>,
-    current_position: usize,
+    slice_offset: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
-            cursor: Cursor::new(src),
+            cursor: LexerCursor::new(src),
             tokens: Vec::new(),
-            current_position: 0,
+            slice_offset: 0,
         }
     }
 
@@ -21,7 +21,7 @@ impl<'a> Lexer<'a> {
         let mut had_error = false;
 
         loop {
-            self.current_position = self.cursor.position();
+            self.slice_offset = self.cursor.position();
 
             let Some(c) = self.cursor.advance() else {
                 break;
@@ -122,7 +122,7 @@ impl<'a> Lexer<'a> {
     fn add_token(&mut self, kind: TokenKind) {
         self.tokens.push(Token::new(
             kind,
-            self.cursor.slice(self.current_position),
+            self.cursor.slice(self.slice_offset),
             None,
             self.cursor.line,
         ));
@@ -137,7 +137,7 @@ impl<'a> Lexer<'a> {
             self.cursor.advance();
         }
 
-        let lexeme = self.cursor.slice(self.current_position);
+        let lexeme = self.cursor.slice(self.slice_offset);
 
         if let Some(kind) = KEYWORDS.get(lexeme) {
             self.tokens
@@ -166,7 +166,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let lexeme = self.cursor.slice(self.current_position);
+        let lexeme = self.cursor.slice(self.slice_offset);
 
         self.tokens.push(Token::new(
             TokenKind::Number,
@@ -194,7 +194,7 @@ impl<'a> Lexer<'a> {
 
         self.cursor.advance();
 
-        let lexeme = self.cursor.slice(self.current_position);
+        let lexeme = self.cursor.slice(self.slice_offset);
         let value = &lexeme[1..lexeme.len() - 1];
 
         self.tokens.push(Token::new(
@@ -218,14 +218,14 @@ impl<'a> Lexer<'a> {
 }
 
 #[derive(Debug)]
-pub struct Cursor<'a> {
+pub struct LexerCursor<'a> {
     src: &'a str,
     iter: std::iter::Peekable<std::str::CharIndices<'a>>,
     position: usize,
     line: usize,
 }
 
-impl<'a> Cursor<'a> {
+impl<'a> LexerCursor<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
             src,
