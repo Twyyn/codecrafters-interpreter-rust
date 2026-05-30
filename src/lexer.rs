@@ -1,4 +1,4 @@
-use crate::token::{Literal, Token, TokenKind};
+use crate::token::{KEYWORDS, Literal, Token, TokenKind};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -137,17 +137,19 @@ impl<'a> Lexer<'a> {
             self.cursor.advance();
         }
 
-        let mut lexeme = self.cursor.slice(self.current_position);
-        if lexeme.starts_with('"') && lexeme.ends_with('"') {
-            lexeme = &lexeme[1..lexeme.len() - 1];
-        }
+        let lexeme = self.cursor.slice(self.current_position);
 
-        self.tokens.push(Token::new(
-            TokenKind::Identifier,
-            lexeme,
-            None,
-            self.cursor.line,
-        ));
+        if let Some(kind) = KEYWORDS.get(lexeme) {
+            self.tokens
+                .push(Token::new(kind.clone(), lexeme, None, self.cursor.line));
+        } else {
+            self.tokens.push(Token::new(
+                TokenKind::Identifier,
+                lexeme,
+                None,
+                self.cursor.line,
+            ));
+        }
     }
 
     fn number(&mut self) -> Result<(), LexError> {

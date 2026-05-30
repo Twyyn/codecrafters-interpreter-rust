@@ -1,6 +1,7 @@
+use phf::phf_map;
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token<'a> {
     kind: TokenKind,
     lexeme: &'a str,
@@ -34,7 +35,7 @@ impl fmt::Display for Token<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenKind {
     LeftParen,
     RightParen,
@@ -62,6 +63,23 @@ pub enum TokenKind {
     Number,
 
     Identifier,
+
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 
     EOF,
 }
@@ -96,6 +114,23 @@ impl fmt::Display for TokenKind {
 
             Self::Identifier => "IDENTIFIER",
 
+            Self::And => "AND",
+            Self::Class => "CLASS",
+            Self::Else => "ELSE",
+            Self::False => "FALSE",
+            Self::For => "FOR",
+            Self::Fun => "FUN",
+            Self::If => "IF",
+            Self::Nil => "NIL",
+            Self::Or => "OR",
+            Self::Print => "PRINT",
+            Self::Return => "RETURN",
+            Self::Super => "SUPER",
+            Self::This => "THIS",
+            Self::True => "TRUE",
+            Self::Var => "VAR",
+            Self::While => "WHILE",
+
             Self::EOF => "EOF",
         };
 
@@ -103,30 +138,10 @@ impl fmt::Display for TokenKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Number(f64),
     String(String),
-}
-
-#[derive(Debug)]
-pub enum Keyword {
-    And,
-    Class,
-    Else,
-    False,
-    For,
-    Fun,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
 }
 
 impl fmt::Display for Literal {
@@ -143,3 +158,22 @@ impl fmt::Display for Literal {
         }
     }
 }
+
+pub static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
+    "and" => TokenKind::And,
+    "class" => TokenKind::Class,
+    "else" => TokenKind::Else,
+    "false" => TokenKind::False,
+    "for" => TokenKind::For,
+    "fun" => TokenKind::Fun,
+    "if" => TokenKind::If,
+    "nil" => TokenKind::Nil,
+    "or" => TokenKind::Or,
+    "print" => TokenKind::Print,
+    "return" => TokenKind::Return,
+    "super" => TokenKind::Super,
+    "this" => TokenKind::This,
+    "true" => TokenKind::True,
+    "var" => TokenKind::Var,
+    "while" => TokenKind::While
+};
