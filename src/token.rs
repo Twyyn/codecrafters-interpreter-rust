@@ -60,7 +60,8 @@ pub enum TokenKind {
 
     String,
     Number,
-    Nil,
+
+    Identifier,
 
     EOF,
 }
@@ -92,7 +93,8 @@ impl fmt::Display for TokenKind {
 
             Self::String => "STRING",
             Self::Number => "NUMBER",
-            Self::Nil => "NIL",
+
+            Self::Identifier => "IDENTIFIER",
 
             Self::EOF => "EOF",
         };
@@ -105,7 +107,26 @@ impl fmt::Display for TokenKind {
 pub enum Literal {
     Number(f64),
     String(String),
+}
+
+#[derive(Debug)]
+pub enum Keyword {
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
     Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 }
 
 impl fmt::Display for Literal {
@@ -119,7 +140,6 @@ impl fmt::Display for Literal {
                 }
             }
             Self::String(s) => write!(f, "{s}"),
-            Self::Nil => write!(f, "null"),
         }
     }
 }

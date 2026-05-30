@@ -94,6 +94,8 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
+                c if c.is_ascii_alphanumeric() || matches!(c, '_') => self.identifier(),
+
                 ' ' | '\r' | '\t' | '\n' => {}
 
                 _ => {
@@ -126,8 +128,34 @@ impl<'a> Lexer<'a> {
         ));
     }
 
+    fn identifier(&mut self) {
+        while self
+            .cursor
+            .peek()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
+        {
+            self.cursor.advance();
+        }
+
+        let mut lexeme = self.cursor.slice(self.current_position);
+        if lexeme.starts_with('"') && lexeme.ends_with('"') {
+            lexeme = &lexeme[1..lexeme.len() - 1];
+        }
+
+        self.tokens.push(Token::new(
+            TokenKind::Identifier,
+            lexeme,
+            None,
+            self.cursor.line,
+        ));
+    }
+
     fn number(&mut self) -> Result<(), LexError> {
-        while self.cursor.peek().is_some_and(|c| c.is_ascii_digit()) {
+        while self
+            .cursor
+            .peek()
+            .is_some_and(|c| c.is_ascii_digit() || matches!(c, '_'))
+        {
             self.cursor.advance();
         }
 
@@ -172,7 +200,7 @@ impl<'a> Lexer<'a> {
         let value = &lexeme[1..lexeme.len() - 1];
 
         self.tokens.push(Token::new(
-            TokenKind::String,
+            TokenKind::Number,
             lexeme,
             Some(Literal::String(String::from(value))),
             self.cursor.line,
