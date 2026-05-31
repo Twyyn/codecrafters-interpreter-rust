@@ -83,7 +83,6 @@ impl<'a> Lexer<'a> {
                 }
 
                 c if c.is_ascii_digit() => {
-                    self.had_error = true;
                     if let Err(e) = self.number() {
                         eprintln!("{e}");
                     }
@@ -91,7 +90,6 @@ impl<'a> Lexer<'a> {
 
                 '"' => {
                     if let Err(e) = self.string() {
-                        self.had_error = true;
                         eprintln!("{e}");
                     }
                 }
