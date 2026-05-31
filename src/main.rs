@@ -38,16 +38,22 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
                 println!("{token}");
             }
 
-            Ok(false)
+            Ok(had)
         }
         "parse" => {
             let (tokens, had_error) = Lexer::new(src).scan_tokens();
-            match Parser::new(&tokens).parse() {
-                Ok(expr) => println!("{expr}"),
-                Err(e) => eprintln!("{e}"),
-            }
+            let parse_error = match Parser::new(&tokens).parse() {
+                Ok(expr) => {
+                    println!("{expr}");
+                    false
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    true
+                }
+            };
 
-            Ok(had_error)
+            Ok(had_error || parse_error)
         }
         _ => Err(InterpreterError::UnknownCommand(command.into())),
     }
