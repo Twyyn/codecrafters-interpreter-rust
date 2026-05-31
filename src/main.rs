@@ -41,19 +41,17 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
             Ok(had_error)
         }
         "parse" => {
-            let (tokens, had_error) = Lexer::new(src).scan_tokens();
+            let (tokens, _) = Lexer::new(src).scan_tokens();
             let parse_error = match Parser::new(&tokens).parse() {
                 Ok(expr) => {
                     println!("{expr}");
-                    false
                 }
                 Err(e) => {
                     eprintln!("{e}");
-                    true
                 }
             };
 
-            Ok(had_error || parse_error)
+            Ok(false)
         }
         _ => Err(InterpreterError::UnknownCommand(command.into())),
     }

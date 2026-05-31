@@ -90,6 +90,7 @@ impl<'a> Lexer<'a> {
 
                 '"' => {
                     if let Err(e) = self.string() {
+                        self.had_error = true;
                         eprintln!("{e}");
                     }
                 }
