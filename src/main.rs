@@ -42,14 +42,14 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
         }
         "parse" => {
             let (tokens, _) = Lexer::new(src).scan_tokens();
-            let parse_error = match Parser::new(&tokens).parse() {
+            match Parser::new(&tokens).parse() {
                 Ok(expr) => {
                     println!("{expr}");
                 }
                 Err(e) => {
                     eprintln!("{e}");
                 }
-            };
+            }
 
             Ok(false)
         }
