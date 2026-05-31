@@ -9,15 +9,7 @@ fn main() -> Result<(), InterpreterError> {
 
     match (args.next(), args.next()) {
         (Some(command), None) => run_prompt(&command),
-
-        (Some(command), Some(filename)) => {
-            if run_file(&command, &filename)? {
-                std::process::exit(65);
-            }
-
-            Ok(())
-        }
-
+        (Some(command), Some(filename)) => run_file(&command, &filename),
         _ => {
             eprintln!(
                 "Usage: {} [tokenize <filename>]",
@@ -29,7 +21,7 @@ fn main() -> Result<(), InterpreterError> {
 }
 
 #[allow(clippy::single_match_else)]
-fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
+fn run(command: &str, src: &str) -> Result<(), InterpreterError> {
     match command {
         "tokenize" => {
             let (tokens, had_error) = Lexer::new(src).scan_tokens();
@@ -38,7 +30,11 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
                 println!("{token}");
             }
 
-            Ok(had_error)
+            if had_error {
+                std::process::exit(65)
+            }
+
+            Ok(())
         }
         "parse" => {
             let (tokens, _) = Lexer::new(src).scan_tokens();
@@ -51,8 +47,9 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
                 }
             }
 
-            Ok(false)
+            Ok(())
         }
+
         _ => Err(InterpreterError::UnknownCommand(command.into())),
     }
 }
@@ -83,7 +80,7 @@ fn run_prompt(command: &str) -> Result<(), InterpreterError> {
     Ok(())
 }
 
-fn run_file(command: &str, filename: &str) -> Result<bool, InterpreterError> {
+fn run_file(command: &str, filename: &str) -> Result<(), InterpreterError> {
     let src =
         fs::read_to_string(filename).map_err(|e| InterpreterError::FileRead(filename.into(), e))?;
 
