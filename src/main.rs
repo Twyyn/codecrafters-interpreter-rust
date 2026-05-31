@@ -14,8 +14,7 @@ fn main() -> Result<(), InterpreterError> {
             if run_file(&command, &filename)? {
                 std::process::exit(65);
             }
-
-            Ok(())
+            std::process::exit(0);
         }
 
         _ => {
