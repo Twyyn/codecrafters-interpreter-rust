@@ -15,9 +15,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr<'a>, ParseError> {
+    pub fn expression(&mut self) -> Result<Expr<'a>, ParseError> {
         self.primary()
     }
+
+    // fn unary(&mut self) -> Result<Expr<'a>, ParseError> {
+    //     let expr = self.primary()?;
+    //     todo!()
+    // }
 
     fn primary(&mut self) -> Result<Expr<'a>, ParseError> {
         if self.cursor.match_token(TokenKind::True) {
@@ -44,9 +49,13 @@ impl<'a> Parser<'a> {
         if self.cursor.match_token(TokenKind::String)
             && let Some(token) = self.cursor.previous()
         {
-            return Ok(Expr::Literal(Literal::String(
-                &token.lexeme[1..token.lexeme.len() - 1],
-            )));
+            return Ok(Expr::Literal(Literal::String(token.lexeme)));
+        }
+
+        if self.cursor.match_token(TokenKind::LeftParen) {
+            let expr = self.expression()?;
+            self.cursor.consume(TokenKind::RightParen)?;
+            return Ok(Expr::Grouping(Box::new(expr)));
         }
 
         Err(ParseError::UnexpectedExpr)
@@ -66,6 +75,17 @@ impl<'a> ParserCursor<'a> {
         }
     }
 
+    #[allow(clippy::unwrap_used)]
+    pub fn consume(&mut self, kind: TokenKind) -> Result<&Token<'a>, ParseError> {
+        if self.check_token(&kind) {
+            return Ok(self.advance().unwrap());
+        }
+
+        Err(ParseError::UnmatchedParentheses {
+            line: self.peek().map_or(0, |token| token.line),
+        })
+    }
+
     pub fn match_token(&mut self, kind: TokenKind) -> bool {
         self.match_tokens(&[kind])
     }
@@ -80,8 +100,8 @@ impl<'a> ParserCursor<'a> {
         false
     }
 
-    pub fn check_token(&self, token_kind: &TokenKind) -> bool {
-        self.peek().is_some_and(|t| t.kind == *token_kind)
+    pub fn check_token(&self, kind: &TokenKind) -> bool {
+        self.peek().is_some_and(|token| token.kind == *kind)
     }
 
     pub fn advance(&mut self) -> Option<&Token<'a>> {
@@ -115,6 +135,8 @@ impl<'a> ParserCursor<'a> {
 
 #[derive(Debug, Error)]
 pub enum ParseError {
-    #[error("Expected expression")]
+    #[error("Error: Expected expression")]
     UnexpectedExpr,
+    #[error("[line {line}] Error: Unmatched parentheses.")]
+    UnmatchedParentheses { line: usize },
 }

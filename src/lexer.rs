@@ -141,7 +141,7 @@ impl<'a> Lexer<'a> {
 
         if let Some(kind) = KEYWORDS.get(lexeme) {
             self.tokens
-                .push(Token::new(kind.clone(), lexeme, None, self.cursor.line));
+                .push(Token::new(*kind, lexeme, None, self.cursor.line));
         } else {
             self.tokens.push(Token::new(
                 TokenKind::Identifier,

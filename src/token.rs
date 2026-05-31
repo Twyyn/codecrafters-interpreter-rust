@@ -34,7 +34,7 @@ impl fmt::Display for Token<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     LeftParen,
     RightParen,

@@ -38,7 +38,7 @@ fn run(command: &str, src: &str) -> Result<(), InterpreterError> {
         }
         "parse" => {
             let (tokens, _) = Lexer::new(src).scan_tokens();
-            match Parser::new(&tokens).parse() {
+            match Parser::new(&tokens).expression() {
                 Ok(expr) => {
                     println!("{expr}");
                 }
