@@ -25,7 +25,13 @@ pub enum Literal<'a> {
 impl fmt::Display for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Number(number) => write!(f, "{number}"),
+            Self::Number(number) => {
+                if number.fract() == 0.0 {
+                    write!(f, "{number:.1}")
+                } else {
+                    write!(f, "{number}")
+                }
+            }
             Self::String(string) => write!(f, "{string}"),
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Nil => write!(f, "nil"),
