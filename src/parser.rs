@@ -49,7 +49,9 @@ impl<'a> Parser<'a> {
         if self.cursor.match_token(TokenKind::String)
             && let Some(token) = self.cursor.previous()
         {
-            return Ok(Expr::Literal(Literal::String(token.lexeme)));
+            return Ok(Expr::Literal(Literal::String(
+                &token.lexeme[1..token.lexeme.len() - 1],
+            )));
         }
 
         if self.cursor.match_token(TokenKind::LeftParen) {
