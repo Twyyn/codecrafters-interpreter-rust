@@ -15,29 +15,41 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Expr> {
-        let mut expressions = Vec::new();
-        while !self.cursor.is_at_end() {
-            expressions.push(self.primary());
-        }
-
-        expressions
+    pub fn parse(&mut self) -> Result<Expr<'a>, ParseError> {
+        self.primary()
     }
 
-    fn primary(&mut self) -> Expr {
-        if self.cursor.match_token_kinds(&[TokenKind::True]) {
-            return Expr::Literal(Literal::Boolean(true));
+    fn primary(&mut self) -> Result<Expr<'a>, ParseError> {
+        if self.cursor.match_token(TokenKind::True) {
+            return Ok(Expr::Literal(Literal::Boolean(true)));
         }
 
-        if self.cursor.match_token_kinds(&[TokenKind::False]) {
-            return Expr::Literal(Literal::Boolean(false));
+        if self.cursor.match_token(TokenKind::False) {
+            return Ok(Expr::Literal(Literal::Boolean(false)));
         }
 
-        if self.cursor.match_token_kinds(&[TokenKind::Nil]) {
-            return Expr::Literal(Literal::Nil);
+        if self.cursor.match_token(TokenKind::Nil) {
+            return Ok(Expr::Literal(Literal::Nil));
         }
 
-        panic!("expected expression");
+        if self.cursor.match_token(TokenKind::Number)
+            && let Some(crate::token::Literal::Number(number)) = self
+                .cursor
+                .previous()
+                .and_then(|token| token.literal.as_ref())
+        {
+            return Ok(Expr::Literal(Literal::Number(*number)));
+        }
+
+        if self.cursor.match_token(TokenKind::String)
+            && let Some(token) = self.cursor.previous()
+        {
+            return Ok(Expr::Literal(Literal::String(
+                &token.lexeme[1..token.lexeme.len() - 1],
+            )));
+        }
+
+        Err(ParseError::UnexpectedExpr)
     }
 }
 
@@ -54,9 +66,13 @@ impl<'a> ParserCursor<'a> {
         }
     }
 
-    pub fn match_token_kinds(&mut self, tokens: &[TokenKind]) -> bool {
-        for token in tokens {
-            if self.check_token_kind(token) {
+    pub fn match_token(&mut self, kind: TokenKind) -> bool {
+        self.match_tokens(&[kind])
+    }
+
+    pub fn match_tokens(&mut self, kinds: &[TokenKind]) -> bool {
+        for token in kinds {
+            if self.check_token(token) {
                 self.advance();
                 return true;
             }
@@ -64,7 +80,7 @@ impl<'a> ParserCursor<'a> {
         false
     }
 
-    pub fn check_token_kind(&self, token_kind: &TokenKind) -> bool {
+    pub fn check_token(&self, token_kind: &TokenKind) -> bool {
         self.peek().is_some_and(|t| t.kind == *token_kind)
     }
 
@@ -79,11 +95,7 @@ impl<'a> ParserCursor<'a> {
     }
 
     pub fn previous(&self) -> Option<&Token<'a>> {
-        if self.position == 0 {
-            None
-        } else {
-            self.tokens.get(self.position - 1)
-        }
+        self.tokens.get(self.position - 1)
     }
 
     pub fn is_at_end(&self) -> bool {
@@ -103,6 +115,6 @@ impl<'a> ParserCursor<'a> {
 
 #[derive(Debug, Error)]
 pub enum ParseError {
-    // #[error("[line {line}] Error: Unexpected character: {c}")]
-    // UnexpectedChar { line: usize, c: char },
+    #[error("Expected expression")]
+    UnexpectedExpr,
 }

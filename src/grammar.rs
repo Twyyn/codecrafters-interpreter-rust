@@ -2,11 +2,11 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 
-pub enum Expr {
-    Literal(Literal),
+pub enum Expr<'a> {
+    Literal(Literal<'a>),
 }
 
-impl fmt::Display for Expr {
+impl fmt::Display for Expr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Literal(literal) => write!(f, "{literal}"),
@@ -15,14 +15,14 @@ impl fmt::Display for Expr {
 }
 
 #[derive(Debug, Clone)]
-pub enum Literal {
+pub enum Literal<'a> {
     Number(f64),
-    String(String),
+    String(&'a str),
     Boolean(bool),
     Nil,
 }
 
-impl fmt::Display for Literal {
+impl fmt::Display for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Number(number) => write!(f, "{number}"),

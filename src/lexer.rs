@@ -5,28 +5,30 @@ use thiserror::Error;
 pub struct Lexer<'a> {
     cursor: LexerCursor<'a>,
     tokens: Vec<Token<'a>>,
-    slice_offset: usize,
+    had_error: bool,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(src: &'a str) -> Self {
+    pub const fn new(src: &'a str) -> Self {
         Self {
             cursor: LexerCursor::new(src),
             tokens: Vec::new(),
-            slice_offset: 0,
+            had_error: false,
         }
     }
 
-    pub fn scan_tokens(mut self) -> Result<Vec<Token<'a>>, Vec<Token<'a>>> {
-        let mut had_error = false;
+    pub fn scan_tokens(mut self) -> (Vec<Token<'a>>, bool) {
+        while !self.cursor.is_at_end() {
+            self.scan_token();
+        }
+        self.add_token(TokenKind::EOF);
+        (self.tokens, self.had_error)
+    }
 
-        loop {
-            self.slice_offset = self.cursor.position();
+    fn scan_token(&mut self) {
+        self.cursor.reset_slice_offset();
 
-            let Some(c) = self.cursor.advance() else {
-                break;
-            };
-
+        if let Some(c) = self.cursor.advance() {
             match c {
                 '(' => self.add_token(TokenKind::LeftParen),
                 ')' => self.add_token(TokenKind::RightParen),
@@ -81,63 +83,62 @@ impl<'a> Lexer<'a> {
                 }
 
                 c if c.is_ascii_digit() => {
+                    self.had_error = true;
                     if let Err(e) = self.number() {
                         eprintln!("{e}");
-                        had_error = true;
                     }
                 }
 
                 '"' => {
                     if let Err(e) = self.string() {
+                        self.had_error = true;
                         eprintln!("{e}");
-                        had_error = true;
                     }
                 }
 
-                c if c.is_ascii_alphanumeric() || matches!(c, '_') => self.identifier(),
+                c if c.is_ascii_alphanumeric() || c == '_' => self.identifier(),
 
                 ' ' | '\r' | '\t' | '\n' => {}
 
                 _ => {
-                    let err = LexError::UnexpectedChar {
-                        line: self.cursor.line,
-                        c,
-                    };
-                    eprintln!("{err}");
-                    had_error = true;
+                    self.had_error = true;
+                    eprintln!(
+                        "{}",
+                        LexError::UnexpectedChar {
+                            line: self.cursor.line,
+                            c,
+                        }
+                    );
                 }
             }
-        }
-
-        self.tokens
-            .push(Token::new(TokenKind::EOF, "", None, self.cursor.line));
-
-        if had_error {
-            Err(self.tokens)
-        } else {
-            Ok(self.tokens)
         }
     }
 
     fn add_token(&mut self, kind: TokenKind) {
-        self.tokens.push(Token::new(
-            kind,
-            self.cursor.slice(self.slice_offset),
-            None,
-            self.cursor.line,
-        ));
+        match kind {
+            TokenKind::EOF => self
+                .tokens
+                .push(Token::new(kind, "", None, self.cursor.line)),
+
+            _ => self.tokens.push(Token::new(
+                kind,
+                self.cursor.slice(),
+                None,
+                self.cursor.line,
+            )),
+        }
     }
 
     fn identifier(&mut self) {
         while self
             .cursor
             .peek()
-            .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '_'))
+            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
         {
             self.cursor.advance();
         }
 
-        let lexeme = self.cursor.slice(self.slice_offset);
+        let lexeme = self.cursor.slice();
 
         if let Some(kind) = KEYWORDS.get(lexeme) {
             self.tokens
@@ -166,7 +167,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let lexeme = self.cursor.slice(self.slice_offset);
+        let lexeme = self.cursor.slice();
 
         self.tokens.push(Token::new(
             TokenKind::Number,
@@ -179,28 +180,22 @@ impl<'a> Lexer<'a> {
     }
 
     fn string(&mut self) -> Result<(), LexError> {
-        while let Some(c) = self.cursor.peek() {
-            if c == '"' {
-                break;
-            }
+        while self.cursor.peek().is_some_and(|c| c != '"') {
             self.cursor.advance();
         }
 
-        if self.cursor.peek() != Some('"') {
+        if self.cursor.advance() != Some('"') {
             return Err(LexError::UnterminatedString {
                 line: self.cursor.line,
             });
         }
 
-        self.cursor.advance();
-
-        let lexeme = self.cursor.slice(self.slice_offset);
-        let value = &lexeme[1..lexeme.len() - 1];
+        let lexeme = self.cursor.slice();
 
         self.tokens.push(Token::new(
             TokenKind::String,
             lexeme,
-            Some(Literal::String(String::from(value))),
+            Some(Literal::String(&lexeme[1..lexeme.len() - 1])),
             self.cursor.line,
         ));
 
@@ -208,11 +203,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn comment(&mut self) {
-        while let Some(c) = self.cursor.peek() {
+        while self.cursor.peek().is_some_and(|c| c != '\n') {
             self.cursor.advance();
-            if c == '\n' {
-                break;
-            }
         }
     }
 }
@@ -220,32 +212,21 @@ impl<'a> Lexer<'a> {
 #[derive(Debug)]
 pub struct LexerCursor<'a> {
     src: &'a str,
-    iter: std::iter::Peekable<std::str::CharIndices<'a>>,
+
     position: usize,
+    slice_offset: usize,
     line: usize,
 }
 
 impl<'a> LexerCursor<'a> {
-    pub fn new(src: &'a str) -> Self {
+    pub const fn new(src: &'a str) -> Self {
         Self {
             src,
-            iter: src.char_indices().peekable(),
             position: 0,
+            slice_offset: 0,
             line: 1,
         }
     }
-
-    pub fn advance(&mut self) -> Option<char> {
-        let (offset, c) = self.iter.next()?;
-        self.position = offset + c.len_utf8();
-
-        if matches!(c, '\n') {
-            self.line += 1;
-        }
-
-        Some(c)
-    }
-
     pub fn matches(&mut self, expected: char) -> bool {
         if self.peek() == Some(expected) {
             self.advance();
@@ -254,22 +235,38 @@ impl<'a> LexerCursor<'a> {
             false
         }
     }
-    pub fn peek_next(&mut self) -> Option<char> {
+
+    pub fn advance(&mut self) -> Option<char> {
+        let c = self.peek()?;
+        self.position += c.len_utf8();
+
+        if matches!(c, '\n') {
+            self.line += 1;
+        }
+
+        Some(c)
+    }
+
+    pub const fn is_at_end(&self) -> bool {
+        self.position >= self.src.len()
+    }
+
+    pub fn peek_next(&self) -> Option<char> {
         let mut lookahead = self.src[self.position..].char_indices();
         lookahead.next();
         lookahead.next().map(|(_, c)| c)
     }
 
     pub fn peek(&mut self) -> Option<char> {
-        self.iter.peek().map(|&(_, c)| c)
+        self.src[self.position..].chars().next()
     }
 
-    pub fn slice(&self, start: usize) -> &'a str {
-        &self.src[start..self.position]
+    pub const fn reset_slice_offset(&mut self) {
+        self.slice_offset = self.position;
     }
 
-    pub const fn position(&self) -> usize {
-        self.position
+    pub fn slice(&self) -> &'a str {
+        &self.src[self.slice_offset..self.position]
     }
 }
 
@@ -277,8 +274,10 @@ impl<'a> LexerCursor<'a> {
 pub enum LexError {
     #[error("[line {line}] Error: Unexpected character: {c}")]
     UnexpectedChar { line: usize, c: char },
+
     #[error("[line {line}] Error: Unterminated string.")]
     UnterminatedString { line: usize },
+
     #[error("{0}")]
     FloatParse(#[from] std::num::ParseFloatError),
 }

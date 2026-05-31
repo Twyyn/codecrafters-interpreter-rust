@@ -3,21 +3,19 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 
-fn main() {
+fn main() -> Result<(), InterpreterError> {
     let mut args = env::args();
     let program = args.next();
 
     match (args.next(), args.next()) {
-        (Some(command), None) => {
-            if let Err(e) = run_prompt(&command) {
-                eprintln!("{e}");
-            }
-        }
+        (Some(command), None) => run_prompt(&command),
 
         (Some(command), Some(filename)) => {
-            if let Err(e) = run_file(&command, &filename) {
-                eprintln!("{e}");
+            if run_file(&command, &filename)? {
+                std::process::exit(65);
             }
+
+            Ok(())
         }
 
         _ => {
@@ -34,10 +32,7 @@ fn main() {
 fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
     match command {
         "tokenize" => {
-            let (tokens, had_error) = match Lexer::new(src).scan_tokens() {
-                Ok(tokens) => (tokens, false),
-                Err(tokens) => (tokens, true),
-            };
+            let (tokens, had_error) = Lexer::new(src).scan_tokens();
 
             for token in tokens {
                 println!("{token}");
@@ -46,19 +41,14 @@ fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
             Ok(had_error)
         }
         "parse" => {
-            let (tokens, _err) = match Lexer::new(src).scan_tokens() {
-                Ok(tokens) => (tokens, false),
-                Err(tokens) => (tokens, true),
-            };
-
-            let expressions = Parser::new(&tokens).parse();
-            for expr in expressions {
-                println!("{expr}");
+            let (tokens, had_error) = Lexer::new(src).scan_tokens();
+            match Parser::new(&tokens).parse() {
+                Ok(expr) => println!("{expr}"),
+                Err(e) => eprintln!("{e}"),
             }
 
-            Ok(false)
+            Ok(had_error)
         }
-
         _ => Err(InterpreterError::UnknownCommand(command.into())),
     }
 }
@@ -83,21 +73,15 @@ fn run_prompt(command: &str) -> Result<(), InterpreterError> {
             continue;
         }
 
-        let _had_error = run(command, line)?;
+        run(command, line)?;
     }
 
     Ok(())
 }
 
-fn run_file(command: &str, filename: &str) -> Result<(), InterpreterError> {
+fn run_file(command: &str, filename: &str) -> Result<bool, InterpreterError> {
     let src =
         fs::read_to_string(filename).map_err(|e| InterpreterError::FileRead(filename.into(), e))?;
 
-    let had_error = run(command, &src)?;
-
-    if had_error {
-        std::process::exit(65);
-    }
-
-    Ok(())
+    run(command, &src)
 }

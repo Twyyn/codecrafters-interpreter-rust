@@ -13,4 +13,7 @@ pub enum InterpreterError {
 
     #[error("{0}")]
     Lex(#[from] crate::lexer::LexError),
+
+    #[error("{0}")]
+    Parse(#[from] crate::parser::ParseError),
 }

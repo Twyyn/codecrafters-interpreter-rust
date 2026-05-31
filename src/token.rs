@@ -5,7 +5,7 @@ use std::fmt;
 pub struct Token<'a> {
     pub kind: TokenKind,
     pub lexeme: &'a str,
-    pub literal: Option<Literal>,
+    pub literal: Option<Literal<'a>>,
     pub line: usize,
 }
 
@@ -13,7 +13,7 @@ impl<'a> Token<'a> {
     pub const fn new(
         kind: TokenKind,
         lexeme: &'a str,
-        literal: Option<Literal>,
+        literal: Option<Literal<'a>>,
         line: usize,
     ) -> Self {
         Self {
@@ -138,12 +138,12 @@ impl fmt::Display for TokenKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum Literal {
+pub enum Literal<'a> {
     Number(f64),
-    String(String),
+    String(&'a str),
 }
 
-impl fmt::Display for Literal {
+impl fmt::Display for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Number(n) => {
