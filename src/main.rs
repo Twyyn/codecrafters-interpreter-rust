@@ -32,13 +32,13 @@ fn main() -> Result<(), InterpreterError> {
 fn run(command: &str, src: &str) -> Result<bool, InterpreterError> {
     match command {
         "tokenize" => {
-            let (tokens, had_error) = Lexer::new(src).scan_tokens();
+            let (tokens, _) = Lexer::new(src).scan_tokens();
 
             for token in tokens {
                 println!("{token}");
             }
 
-            Ok(had_error)
+            Ok(false)
         }
         "parse" => {
             let (tokens, had_error) = Lexer::new(src).scan_tokens();
