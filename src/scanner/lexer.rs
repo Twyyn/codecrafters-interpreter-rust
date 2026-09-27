@@ -29,7 +29,7 @@ impl<'src> Lexer<'src> {
         self.start = self.current;
 
         let Some(ch) = self.bump() else {
-            return Ok(Some(self.make_token(TokenKind::Eof)));
+            return Ok(Some(self.token(TokenKind::Eof)));
         };
 
         let kind = match ch {
@@ -71,7 +71,7 @@ impl<'src> Lexer<'src> {
             }
         };
 
-        Ok(Some(self.make_token(kind)))
+        Ok(Some(self.token(kind)))
     }
 
     fn identifier(&mut self) -> TokenKind {
@@ -146,8 +146,12 @@ impl<'src> Lexer<'src> {
         None
     }
 
-    fn make_token(&self, kind: TokenKind) -> Token {
+    fn token(&self, kind: TokenKind) -> Token {
         Token::new(kind, self.span())
+    }
+
+    fn span(&self) -> Span {
+        Span::new(self.start.offset(), self.current.offset())
     }
 
     fn match_next<F>(&mut self, predicate: F) -> bool
@@ -178,10 +182,6 @@ impl<'src> Lexer<'src> {
 
     fn peek(&self) -> Option<char> {
         self.chars.clone().next().map(|(_, ch)| ch)
-    }
-
-    fn span(&self) -> Span {
-        Span::new(self.start.offset(), self.current.offset())
     }
 }
 
