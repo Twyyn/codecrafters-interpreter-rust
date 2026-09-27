@@ -26,6 +26,8 @@ impl<'src> Lexer<'src> {
     }
 
     fn next_token(&mut self) -> LexResult<Option<Token>> {
+        self.start = self.current;
+
         let Some(ch) = self.bump() else {
             return Ok(Some(self.make_token(TokenKind::Eof)));
         };
@@ -54,13 +56,13 @@ impl<'src> Lexer<'src> {
                 return Ok(None);
             }
             '/' => TokenKind::Slash,
-            ' ' => {
+            ch if ch.is_ascii_whitespace() => {
                 self.whitespace();
                 return Ok(None);
             }
             '"' => self.string()?,
-            '0'..='9' => self.number(),
-            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
+            ch if ch.is_ascii_digit() => self.number(),
+            ch if ch.is_ascii_alphanumeric() || ch == '_' => self.identifier(),
             _ => {
                 return Err(LexError::UnexpectedChar {
                     line: self.current.line(),
@@ -73,7 +75,7 @@ impl<'src> Lexer<'src> {
     }
 
     fn identifier(&mut self) -> TokenKind {
-        while matches!(self.peek(), Some(ch) if ch.is_alphanumeric()|| ch == '_') {
+        while matches!(self.peek(), Some(ch) if ch.is_ascii_alphanumeric()) {
             self.bump();
         }
 
@@ -109,11 +111,17 @@ impl<'src> Lexer<'src> {
                 return Ok(TokenKind::String);
             }
 
+            if ch == '\n' {
+                return Err(LexError::UnterminatedString {
+                    line: self.start.line(),
+                });
+            }
+
             self.bump();
         }
 
         Err(LexError::UnterminatedString {
-            line: self.current.line(),
+            line: self.start.line(),
         })
     }
 

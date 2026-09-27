@@ -21,8 +21,14 @@ impl fmt::Display for ByteIndex {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LineIndex(pub usize);
+
+impl Default for LineIndex {
+    fn default() -> Self {
+        Self(1)
+    }
+}
 
 impl LineIndex {
     pub fn increment(&mut self) {
