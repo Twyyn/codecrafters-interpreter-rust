@@ -1,32 +1,40 @@
-#![allow(unused_variables)]
 use std::env;
 use std::fs;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        eprintln!("Usage: {} tokenize <filename>", args[0]);
-        return;
-    }
+use codecrafters_interpreter::Lexer;
 
-    let command = &args[1];
-    let filename = &args[2];
+fn main() {
+    let mut args = env::args().skip(1);
+
+    let Some(command) = args.next() else {
+        eprintln!("Usage: tokenize <filename>");
+        return;
+    };
+
+    let Some(filename) = args.next() else {
+        eprintln!("Usage: tokenize <filename>");
+        return;
+    };
 
     match command.as_str() {
         "tokenize" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
+            let source = match fs::read_to_string(&filename) {
+                Ok(source) => source,
+                Err(err) => {
+                    eprintln!("Failed to read {filename}: {err}");
+                    return;
+                }
+            };
 
-            if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
-            } else {
-                println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
+            for token in Lexer::new(&source) {
+                match token {
+                    Ok(token) => println!("{token:#?}"),
+                    Err(err) => eprintln!("{err}"),
+                }
             }
         }
         _ => {
-            eprintln!("Unknown command: {}", command);
+            eprintln!("Unknown command: {command}");
         }
     }
 }
