@@ -41,17 +41,17 @@ impl<'src> Lexer<'src> {
             ';' => TokenKind::Semicolon,
             '*' => TokenKind::Star,
             '.' => TokenKind::Dot,
-            '=' if self.match_next(|ch| ch == '=') => TokenKind::EqualEqual,
+            '=' if self.next_matches(|ch| ch == '=') => TokenKind::EqualEqual,
             '=' => TokenKind::Equal,
-            '!' if self.match_next(|ch| ch == '=') => TokenKind::BangEqual,
+            '!' if self.next_matches(|ch| ch == '=') => TokenKind::BangEqual,
             '!' => TokenKind::Bang,
-            '<' if self.match_next(|ch| ch == '=') => TokenKind::LessEqual,
+            '<' if self.next_matches(|ch| ch == '=') => TokenKind::LessEqual,
             '<' => TokenKind::Less,
-            '>' if self.match_next(|ch| ch == '=') => TokenKind::GreaterEqual,
+            '>' if self.next_matches(|ch| ch == '=') => TokenKind::GreaterEqual,
             '>' => TokenKind::Greater,
             '"' => self.string()?,
             '/' => {
-                if self.match_next(|ch| ch == '/') {
+                if self.next_matches(|ch| ch == '/') {
                     self.comment();
                     return Ok(None);
                 }
@@ -141,7 +141,15 @@ impl<'src> Lexer<'src> {
         None
     }
 
-    fn match_next<F>(&mut self, predicate: F) -> bool
+    fn token(&self, kind: TokenKind) -> Token {
+        Token::new(kind, self.span())
+    }
+
+    fn span(&self) -> Span {
+        Span::new(self.start.offset(), self.current.offset())
+    }
+
+    fn next_matches<F>(&mut self, predicate: F) -> bool
     where
         F: FnOnce(char) -> bool,
     {
@@ -169,14 +177,6 @@ impl<'src> Lexer<'src> {
 
     fn peek(&self) -> Option<char> {
         self.chars.clone().next().map(|(_, ch)| ch)
-    }
-
-    fn token(&self, kind: TokenKind) -> Token {
-        Token::new(kind, self.span())
-    }
-
-    fn span(&self) -> Span {
-        Span::new(self.start.offset(), self.current.offset())
     }
 }
 
