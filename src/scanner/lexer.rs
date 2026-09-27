@@ -27,7 +27,7 @@ impl<'src> Lexer<'src> {
 
     fn next_token(&mut self) -> LexResult<Option<Token>> {
         let Some(ch) = self.bump() else {
-            return Ok(Some(self.token(TokenKind::Eof)));
+            return Ok(Some(self.make_token(TokenKind::Eof)));
         };
 
         let kind = match ch {
@@ -41,29 +41,26 @@ impl<'src> Lexer<'src> {
             ';' => TokenKind::Semicolon,
             '*' => TokenKind::Star,
             '.' => TokenKind::Dot,
-            '=' if self.next_matches(|ch| ch == '=') => TokenKind::EqualEqual,
+            '=' if self.match_next(|ch| ch == '=') => TokenKind::EqualEqual,
             '=' => TokenKind::Equal,
-            '!' if self.next_matches(|ch| ch == '=') => TokenKind::BangEqual,
+            '!' if self.match_next(|ch| ch == '=') => TokenKind::BangEqual,
             '!' => TokenKind::Bang,
-            '<' if self.next_matches(|ch| ch == '=') => TokenKind::LessEqual,
+            '<' if self.match_next(|ch| ch == '=') => TokenKind::LessEqual,
             '<' => TokenKind::Less,
-            '>' if self.next_matches(|ch| ch == '=') => TokenKind::GreaterEqual,
+            '>' if self.match_next(|ch| ch == '=') => TokenKind::GreaterEqual,
             '>' => TokenKind::Greater,
-            '"' => self.string()?,
-            '/' => {
-                if self.next_matches(|ch| ch == '/') {
-                    self.comment();
-                    return Ok(None);
-                }
-
-                TokenKind::Slash
+            '/' if !self.match_next(|ch| ch == '/') => {
+                self.comment();
+                return Ok(None);
             }
-            ch if ch.is_ascii_whitespace() => {
+            '/' => TokenKind::Slash,
+            ' ' => {
                 self.whitespace();
                 return Ok(None);
             }
-            ch if ch.is_ascii_digit() => self.number(),
-            ch if ch.is_alphanumeric() || ch == '_' => self.identifer(),
+            '"' => self.string()?,
+            '0'..='9' => self.number(),
+            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
             _ => {
                 return Err(LexError::UnexpectedChar {
                     line: self.current.line(),
@@ -72,10 +69,10 @@ impl<'src> Lexer<'src> {
             }
         };
 
-        Ok(Some(self.token(kind)))
+        Ok(Some(self.make_token(kind)))
     }
 
-    fn identifer(&mut self) -> TokenKind {
+    fn identifier(&mut self) -> TokenKind {
         while matches!(self.peek(), Some(ch) if ch.is_alphanumeric()|| ch == '_') {
             self.bump();
         }
@@ -141,15 +138,11 @@ impl<'src> Lexer<'src> {
         None
     }
 
-    fn token(&self, kind: TokenKind) -> Token {
+    fn make_token(&self, kind: TokenKind) -> Token {
         Token::new(kind, self.span())
     }
 
-    fn span(&self) -> Span {
-        Span::new(self.start.offset(), self.current.offset())
-    }
-
-    fn next_matches<F>(&mut self, predicate: F) -> bool
+    fn match_next<F>(&mut self, predicate: F) -> bool
     where
         F: FnOnce(char) -> bool,
     {
@@ -177,6 +170,10 @@ impl<'src> Lexer<'src> {
 
     fn peek(&self) -> Option<char> {
         self.chars.clone().next().map(|(_, ch)| ch)
+    }
+
+    fn span(&self) -> Span {
+        Span::new(self.start.offset(), self.current.offset())
     }
 }
 
