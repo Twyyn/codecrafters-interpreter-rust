@@ -1,5 +1,5 @@
-use crate::location::ByteIndex;
-use std::{fmt, ops::Range, str::FromStr};
+use crate::span::Span;
+use std::{fmt, str::FromStr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Token {
@@ -18,35 +18,6 @@ impl Token {
 
     pub const fn span(&self) -> Span {
         self.span
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Span {
-    start: ByteIndex,
-    end: ByteIndex,
-}
-
-impl Span {
-    pub fn new(start: ByteIndex, end: ByteIndex) -> Self {
-        assert!(start <= end);
-        Self { start, end }
-    }
-
-    pub const fn start(&self) -> ByteIndex {
-        self.start
-    }
-
-    pub const fn end(&self) -> ByteIndex {
-        self.end
-    }
-
-    pub fn range(&self) -> Range<usize> {
-        self.start().into()..self.end().into()
-    }
-
-    pub fn slice(self, source: &str) -> Option<&str> {
-        source.get(self.range())
     }
 }
 
@@ -82,6 +53,26 @@ pub enum TokenKind {
     Eof,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keyword {
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
+}
+
 impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let kind = match self {
@@ -113,26 +104,6 @@ impl fmt::Display for TokenKind {
 
         f.write_str(kind)
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Keyword {
-    And,
-    Class,
-    Else,
-    False,
-    For,
-    Fun,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
 }
 
 impl FromStr for Keyword {
