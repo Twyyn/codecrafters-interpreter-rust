@@ -33,6 +33,9 @@ impl<'src> Lexer<'src> {
         };
 
         let kind = match ch {
+            '"' => self.string()?,
+            '0'..='9' => self.number(),
+            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
             '(' => TokenKind::LParen,
             ')' => TokenKind::RParen,
             '{' => TokenKind::LBrace,
@@ -43,27 +46,48 @@ impl<'src> Lexer<'src> {
             ';' => TokenKind::Semicolon,
             '*' => TokenKind::Star,
             '.' => TokenKind::Dot,
-            '=' if self.match_next(|ch| ch == '=') => TokenKind::EqualEqual,
-            '=' => TokenKind::Equal,
-            '!' if self.match_next(|ch| ch == '=') => TokenKind::BangEqual,
-            '!' => TokenKind::Bang,
-            '<' if self.match_next(|ch| ch == '=') => TokenKind::LessEqual,
-            '<' => TokenKind::Less,
-            '>' if self.match_next(|ch| ch == '=') => TokenKind::GreaterEqual,
-            '>' => TokenKind::Greater,
-            '/' if !self.match_next(|ch| ch == '/') => {
-                self.comment();
-                return Ok(None);
+            '=' => {
+                if self.match_next(|ch| ch == '=') {
+                    TokenKind::EqualEqual
+                } else {
+                    TokenKind::Equal
+                }
             }
-            '/' => TokenKind::Slash,
-            ch if ch.is_ascii_whitespace() => {
-                self.whitespace();
-                return Ok(None);
+            '!' => {
+                if self.match_next(|ch| ch == '=') {
+                    TokenKind::BangEqual
+                } else {
+                    TokenKind::Bang
+                }
             }
-            '"' => self.string()?,
-            ch if ch.is_ascii_digit() => self.number(),
-            ch if ch.is_ascii_alphanumeric() || ch == '_' => self.identifier(),
+            '<' => {
+                if self.match_next(|ch| ch == '=') {
+                    TokenKind::LessEqual
+                } else {
+                    TokenKind::Less
+                }
+            }
+            '>' => {
+                if self.match_next(|ch| ch == '=') {
+                    TokenKind::GreaterEqual
+                } else {
+                    TokenKind::Greater
+                }
+            }
+            '/' => {
+                if self.match_next(|ch| ch != '/') {
+                    self.skip_comment();
+                    return Ok(None);
+                }
+
+                TokenKind::Slash
+            }
             _ => {
+                if ch.is_ascii_whitespace() {
+                    self.skip_whitespace();
+                    return Ok(None);
+                }
+
                 return Err(LexError::UnexpectedChar {
                     line: self.current.line(),
                     ch,
@@ -125,7 +149,7 @@ impl<'src> Lexer<'src> {
         })
     }
 
-    fn whitespace(&mut self) -> Option<TokenKind> {
+    fn skip_whitespace(&mut self) -> Option<TokenKind> {
         while let Some(ch) = self.peek()
             && ch.is_ascii_whitespace()
         {
@@ -135,7 +159,7 @@ impl<'src> Lexer<'src> {
         None
     }
 
-    fn comment(&mut self) -> Option<TokenKind> {
+    fn skip_comment(&mut self) -> Option<TokenKind> {
         while let Some(ch) = self.peek() {
             if ch == '\n' {
                 break;
