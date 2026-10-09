@@ -1,36 +1,27 @@
-#![allow(unused_variables)]
-use std::env;
-use std::fs;
+use anyhow::{Context, Result, bail};
+use codecrafters_interpreter::Lexer;
+use std::{env, fs};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        eprintln!("Usage: {} tokenize <filename>", args[0]);
-        return;
+fn main() -> Result<()> {
+    let mut args = env::args();
+    let program = args.next().unwrap_or_else(|| "program".into());
+
+    let (Some(command), Some(filename)) = (args.next(), args.next()) else {
+        bail!("Usage: {program} tokenize <filename>")
+    };
+
+    if command != "tokenize" {
+        bail!("Unknown command: {command}")
     }
 
-    let command = &args[1];
-    let filename = &args[2];
+    let source =
+        fs::read_to_string(&filename).with_context(|| format!("Failed to read {filename}"))?;
 
-    match command.as_str() {
-        "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            eprintln!("Logs from your program will appear here!");
-
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
-
-            // TODO: Uncomment the code below to pass the first stage
-            // if !file_contents.is_empty() {
-            //     panic!("Scanner not implemented");
-            // } else {
-            //     println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
-            // }
-        }
-        _ => {
-            eprintln!("Unknown command: {}", command);
-        }
+    for token in Lexer::new(&source) {
+        println!("{token:#?}");
     }
+
+    println!("EOF  null");
+
+    Ok(())
 }
