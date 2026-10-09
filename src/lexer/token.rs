@@ -19,7 +19,7 @@ impl Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.kind)
+        write!(f, "{} at {:?}", self.kind, self.span)
     }
 }
 
@@ -42,7 +42,7 @@ impl DiagnosticToken {
 
 impl fmt::Display for DiagnosticToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}", self.line, self.message)
+        write!(f, "[{}] {} {:?}", self.line, self.message, self.span)
     }
 }
 // -------------------------------------------------------------------------------------------------
@@ -144,8 +144,8 @@ impl fmt::Display for TokenKind {
             Self::GreaterEqual => "GREATER_EQUAL",
             Self::Less => "LESS",
             Self::LessEqual => "LESS_EQUAL",
-            Self::Literal(literal) => &format!("{literal}"),
-            Self::Keyword(keyword) => &format!("{keyword}"),
+            Self::Literal(literal) => &format!("LITERAL: {literal}"),
+            Self::Keyword(keyword) => &format!("KEYWORD: {keyword}"),
             Self::Eof => "EOF",
         };
 
