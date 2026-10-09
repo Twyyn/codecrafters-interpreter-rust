@@ -17,8 +17,11 @@ fn main() -> Result<()> {
     let source =
         fs::read_to_string(&filename).with_context(|| format!("Failed to read {filename}"))?;
 
-    for token in Lexer::new(&source) {
-        println!("{token:?}");
+    for result in Lexer::new(&source) {
+        match result {
+            Ok(token) => println!("{token}"),
+            Err(error_token) => println!("{error_token}"),
+        }
     }
 
     println!("EOF  null");
