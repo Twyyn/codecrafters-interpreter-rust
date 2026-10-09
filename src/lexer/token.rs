@@ -17,6 +17,12 @@ impl Token {
     }
 }
 
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} at {:#?}", self.kind, self.span)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DiagnosticToken {
     pub message: String,
