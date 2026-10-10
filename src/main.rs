@@ -23,12 +23,10 @@ fn main() -> Result<()> {
             Ok(token) => println!("{token}"),
             Err(error_token) => {
                 had_error = true;
-                println!("{error_token}");
+                eprintln!("{error_token}");
             }
         }
     }
-
-    println!("EOF  null");
 
     if had_error {
         std::process::exit(65);

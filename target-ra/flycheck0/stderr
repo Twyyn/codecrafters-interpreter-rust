@@ -1,18 +1,11 @@
     Checking codecrafters-interpreter v0.1.0 (C:\Users\bayba\codecrafters-interpreter-rust)
-warning: unused dependency `bytecount`
+warning: unused dependency `bytes`
   --> Cargo.toml:10:1
    |
-10 | bytecount = "0.6.9"
-   | ^^^^^^^^^^^^^^^^^^^
-   |
-   = note: `cargo::unused_dependencies` is set to `warn` by default
-help: consider removing the dependency on `bytecount`
-warning: unused dependency `bytes`
-  --> Cargo.toml:11:1
-   |
-11 | bytes = "1.12.1"                                      # helps manage buffers
+10 | bytes = "1.12.1"                                      # helps manage buffers
    | ^^^^^^^^^^^^^^^^
    |
+   = note: `cargo::unused_dependencies` is set to `warn` by default
 help: consider removing the dependency on `bytes`
-warning: `codecrafters-interpreter` (manifest) generated 2 warnings
+warning: `codecrafters-interpreter` (manifest) generated 1 warning
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
