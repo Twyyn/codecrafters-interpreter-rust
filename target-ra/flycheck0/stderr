@@ -8,4 +8,4 @@ warning: unused dependency `bytes`
    = note: `cargo::unused_dependencies` is set to `warn` by default
 help: consider removing the dependency on `bytes`
 warning: `codecrafters-interpreter` (manifest) generated 1 warning
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s

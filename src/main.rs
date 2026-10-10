@@ -28,6 +28,8 @@ fn main() -> Result<()> {
         }
     }
 
+    println!("EOF NULL");
+
     if had_error {
         std::process::exit(65);
     }
