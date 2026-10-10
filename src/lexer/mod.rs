@@ -1,184 +1,201 @@
 mod token;
 
-use self::token::{DiagnosticToken, Token, TokenKind};
-use crate::{ByteIndex, Span};
+use std::{iter::Peekable, num::ParseFloatError, str::Chars};
+
+use self::token::{ErrorToken, LiteralValue, Token, TokenKind};
 use thiserror::Error;
 
+type LexResult<'a> = Result<Token<'a>, ErrorToken<LexError>>;
+
 #[derive(Debug)]
-pub struct Lexer<'src> {
-    bytes: &'src [u8],
-    position: ByteIndex,
-    line: usize,
+pub struct Lexer<'a> {
+    src: &'a str,
+    chars: Peekable<Chars<'a>>,
+    cursor: usize,
+    offset: usize,
+    line_offset: usize,
 }
 
-impl<'src> Lexer<'src> {
-    pub fn new(src: &'src str) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(input: &'a str) -> Self {
         Self {
-            bytes: src.as_bytes(),
-            position: ByteIndex(0),
-            line: 1,
+            src: input,
+            chars: input.chars().peekable(),
+            cursor: 0,
+            offset: 0,
+            line_offset: 1,
         }
     }
-    fn advance_token(&mut self) -> Result<Token, DiagnosticToken> {
+
+    fn next_token(&mut self) -> LexResult<'a> {
         self.skip_trivia();
 
-        let start = self.position;
-        let line = self.line;
+        self.offset = self.cursor;
 
-        match self.scan_token(start) {
-            Ok(kind) => Ok(self.token(kind, start)),
-            Err(error) => Err(self.error_token(&error, start, line)),
-        }
-    }
-
-    fn scan_token(&mut self, start: ByteIndex) -> Result<TokenKind, LexError> {
-        let Some(byte) = self.bump() else {
-            return Ok(TokenKind::Eof);
+        let Some(ch) = self.bump() else {
+            return Ok(Token::new(TokenKind::Eof, "", None));
         };
 
-        let kind = match byte {
-            b'(' => TokenKind::LeftParen,
-            b')' => TokenKind::RightParen,
-            b'{' => TokenKind::LeftBrace,
-            b'}' => TokenKind::RightBrace,
-            b',' => TokenKind::Comma,
-            b'.' => TokenKind::Dot,
-            b';' => TokenKind::Semicolon,
-            b'-' => TokenKind::Minus,
-            b'+' => TokenKind::Plus,
-            b'/' => TokenKind::Slash,
-            b'*' => TokenKind::Star,
-            b'!' => {
-                if self.match_next(b'=') {
+        let kind = match ch {
+            '(' => TokenKind::LeftParen,
+            ')' => TokenKind::RightParen,
+            '{' => TokenKind::LeftBrace,
+            '}' => TokenKind::RightBrace,
+            ',' => TokenKind::Comma,
+            '.' => TokenKind::Dot,
+            ';' => TokenKind::Semicolon,
+            '-' => TokenKind::Minus,
+            '+' => TokenKind::Plus,
+            '/' => TokenKind::Slash,
+            '*' => TokenKind::Star,
+            '!' => {
+                if self.consume_next('=') {
                     TokenKind::BangEqual
                 } else {
                     TokenKind::Bang
                 }
             }
-            b'=' => {
-                if self.match_next(b'=') {
+            '=' => {
+                if self.consume_next('=') {
                     TokenKind::EqualEqual
                 } else {
                     TokenKind::Equal
                 }
             }
 
-            b'>' => {
-                if self.match_next(b'=') {
+            '>' => {
+                if self.consume_next('=') {
                     TokenKind::GreaterEqual
                 } else {
                     TokenKind::Greater
                 }
             }
 
-            b'<' => {
-                if self.match_next(b'=') {
+            '<' => {
+                if self.consume_next('=') {
                     TokenKind::LessEqual
                 } else {
                     TokenKind::Less
                 }
             }
 
-            b'"' => self.string()?,
-            b'0'..=b'9' => self.number(),
-            b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.identifier(start),
+            '"' => return self.string(),
+            '0'..='9' => return self.number(),
+            'a'..='z' | 'A'..='Z' | '_' => return Ok(self.identifier()),
 
             _ => {
-                return Err(LexError::UnexpectedByte { byte });
+                let error = LexError::UnexpectedChar(ch);
+                return Err(ErrorToken::new(error, self.line_offset));
             }
         };
 
-        Ok(kind)
+        Ok(Token::new(kind, self.lexeme(), None))
     }
 
-    fn identifier(&mut self, start: ByteIndex) -> TokenKind {
-        use token::{Keyword::*, Literal::Identifier};
+    fn identifier(&mut self) -> Token<'a> {
+        self.consume_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
 
-        {
-            self.consume_while(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
-        }
+        let lexeme = self.lexeme();
 
-        match &self.bytes[start.into()..self.position.into()] {
-            b"true" => TokenKind::Keyword(True),
-            b"false" => TokenKind::Keyword(False),
-            b"and" => TokenKind::Keyword(And),
-            b"or" => TokenKind::Keyword(Or),
-            b"nil" => TokenKind::Keyword(Nil),
-            b"if" => TokenKind::Keyword(If),
-            b"else" => TokenKind::Keyword(Else),
-            b"for" => TokenKind::Keyword(For),
-            b"while" => TokenKind::Keyword(While),
-            b"return" => TokenKind::Keyword(Return),
-            b"class" => TokenKind::Keyword(Class),
-            b"fun" => TokenKind::Keyword(Fun),
-            b"super" => TokenKind::Keyword(Super),
-            b"this" => TokenKind::Keyword(This),
-            b"var" => TokenKind::Keyword(Var),
-            b"print" => TokenKind::Keyword(Print),
-            _ => TokenKind::Literal(Identifier),
-        }
+        let kind = match lexeme {
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
+            "and" => TokenKind::And,
+            "or" => TokenKind::Or,
+            "nil" => TokenKind::Nil,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "for" => TokenKind::For,
+            "while" => TokenKind::While,
+            "return" => TokenKind::Return,
+            "class" => TokenKind::Class,
+            "fun" => TokenKind::Fun,
+            "super" => TokenKind::Super,
+            "this" => TokenKind::This,
+            "var" => TokenKind::Var,
+            "print" => TokenKind::Print,
+            _ => TokenKind::Identifier,
+        };
+
+        let literal = if kind.is_identifier() {
+            Some(LiteralValue::String(lexeme))
+        } else {
+            None
+        };
+
+        Token::new(kind, lexeme, literal)
     }
 
-    fn string(&mut self) -> Result<TokenKind, LexError> {
-        use token::Literal::String;
+    fn string(&mut self) -> LexResult<'a> {
+        let start_line = self.line_offset;
 
-        while let Some(byte) = self.bump() {
-            if byte == b'"' {
-                return Ok(TokenKind::Literal(String));
+        while let Some(ch) = self.bump() {
+            match ch {
+                '"' => {
+                    let lexeme = self.lexeme();
+                    let literal = &self.src[self.offset + 1..self.cursor - 1];
+
+                    return Ok(Token::new(
+                        TokenKind::String,
+                        lexeme,
+                        Some(LiteralValue::String(literal)),
+                    ));
+                }
+                '\n' => break,
+                _ => {}
             }
         }
 
-        Err(LexError::UnterminatedString)
+        Err(ErrorToken::new(LexError::UnterminatedString, start_line))
     }
 
-    fn number(&mut self) -> TokenKind {
-        use token::Literal::Number;
+    fn number(&mut self) -> LexResult<'a> {
+        self.consume_while(|ch| ch.is_ascii_digit());
 
-        {
-            self.consume_while(|byte| byte.is_ascii_digit());
-        }
-
-        if self.peek() == Some(b'.') && self.remaining().get(1).is_some_and(u8::is_ascii_digit) {
+        if self.peek() == Some('.') && self.peek_next().is_some_and(|ch| ch.is_ascii_digit()) {
             self.bump();
-            {
-                self.consume_while(|byte| byte.is_ascii_digit());
-            }
+            self.consume_while(|ch| ch.is_ascii_digit());
         }
 
-        TokenKind::Literal(Number)
+        let lexeme = self.lexeme();
+        let value = lexeme.parse::<f64>().map_err(|source| {
+            let error = LexError::InvalidNumber {
+                text: lexeme.into(),
+                source,
+            };
+
+            ErrorToken::new(error, self.line_offset)
+        })?;
+
+        Ok(Token::new(
+            TokenKind::Number,
+            lexeme,
+            Some(LiteralValue::Number(value)),
+        ))
     }
 
     fn skip_trivia(&mut self) {
         loop {
-            {
-                self.consume_while(|byte| byte.is_ascii_whitespace());
+            self.consume_while(|ch| ch.is_ascii_whitespace());
+
+            if self.peek() != Some('/') || self.peek_next() != Some('/') {
+                break;
             }
 
-            if self.remaining().starts_with(b"//") {
-                self.bump();
-                self.bump();
+            self.bump();
+            self.bump();
 
-                {
-                    self.consume_while(|byte| byte != b'\n');
-                }
-
-                continue;
-            }
-            break;
+            self.consume_while(|ch| ch != '\n');
         }
     }
 
-    fn consume_while(&mut self, predicate: impl Fn(u8) -> bool) {
+    fn consume_while(&mut self, predicate: impl Fn(char) -> bool) {
         while self.peek().is_some_and(&predicate) {
             self.bump();
         }
     }
 
-    fn remaining(&self) -> &[u8] {
-        &self.bytes[self.position.into()..]
-    }
-
-    fn match_next(&mut self, expected: u8) -> bool {
+    fn consume_next(&mut self, expected: char) -> bool {
         if self.peek() != Some(expected) {
             return false;
         }
@@ -187,59 +204,54 @@ impl<'src> Lexer<'src> {
         true
     }
 
-    fn bump(&mut self) -> Option<u8> {
-        let byte = self.peek()?;
-        self.position += 1;
+    fn bump(&mut self) -> Option<char> {
+        let ch = self.chars.next()?;
 
-        if byte == b'\n' {
-            self.line += 1;
+        self.cursor += ch.len_utf8();
+
+        if ch == '\n' {
+            self.line_offset += 1;
         }
 
-        Some(byte)
+        Some(ch)
     }
 
-    fn peek(&self) -> Option<u8> {
-        self.remaining().first().copied()
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().copied()
     }
 
-    fn error_token(&self, error: &LexError, offset: ByteIndex, line: usize) -> DiagnosticToken {
-        DiagnosticToken {
-            message: error.to_string(),
-            span: Span::new(offset, self.position),
-            line,
-        }
+    fn peek_next(&self) -> Option<char> {
+        self.chars.clone().nth(1)
     }
 
-    fn token(&self, kind: TokenKind, start: ByteIndex) -> Token {
-        Token {
-            kind,
-            span: Span::new(start, self.position),
-        }
+    fn lexeme(&self) -> &'a str {
+        &self.src[self.offset..self.cursor]
     }
 }
 
-impl Iterator for Lexer<'_> {
-    type Item = Result<Token, DiagnosticToken>;
+impl<'a> Iterator for Lexer<'a> {
+    type Item = LexResult<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.advance_token() {
-            Ok(token) => {
-                if matches!(token.kind, TokenKind::Eof) {
-                    return None;
-                }
-
-                Some(Ok(token))
-            }
-            Err(error_token) => Some(Err(error_token)),
+        match self.next_token() {
+            Ok(token) if token.kind.is_eof() => None,
+            result => Some(result),
         }
     }
 }
 
 #[derive(Debug, Error)]
 pub enum LexError {
-    #[error("Unexpected byte: 0x{byte:02X}")]
-    UnexpectedByte { byte: u8 },
+    #[error("Unexpected character: {0}")]
+    UnexpectedChar(char),
 
     #[error("Unterminated string.")]
     UnterminatedString,
+
+    #[error("Invalid number '{text}': {source}")]
+    InvalidNumber {
+        text: String,
+        #[source]
+        source: ParseFloatError,
+    },
 }

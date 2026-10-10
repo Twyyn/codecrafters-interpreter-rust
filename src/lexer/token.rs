@@ -1,72 +1,79 @@
-use crate::Span;
+use std::error::Error;
 use std::fmt;
 
 // -------------------------------------------------------------------------------------------------
 // Token
 // -------------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Token {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Token<'a> {
     pub kind: TokenKind,
-    pub span: Span,
+    pub lexeme: &'a str,
+    pub literal: Option<LiteralValue<'a>>,
 }
 
-impl Token {
-    pub fn new(kind: TokenKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} at {:?}", self.kind, self.span)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DiagnosticToken {
-    pub message: String,
-    pub span: Span,
-    pub line: usize,
-}
-
-impl DiagnosticToken {
-    pub fn new(message: impl Into<String>, span: Span, line: usize) -> Self {
+impl<'a> Token<'a> {
+    pub fn new(kind: TokenKind, lexeme: &'a str, literal: Option<LiteralValue<'a>>) -> Self {
         Self {
-            message: message.into(),
-            span,
-            line,
+            kind,
+            lexeme,
+            literal,
+        }
+    }
+
+    pub fn lexeme(&self) -> &'a str {
+        self.lexeme
+    }
+
+    pub fn literal(&self) -> Option<LiteralValue<'a>> {
+        self.literal
+    }
+}
+
+impl fmt::Display for Token<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.literal {
+            Some(literal) => write!(f, "{} {} {literal}", self.kind, self.lexeme),
+            None => write!(f, "{} {} null", self.kind, self.lexeme),
         }
     }
 }
 
-impl fmt::Display for DiagnosticToken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {} {:?}", self.line, self.message, self.span)
+#[derive(Debug, Clone)]
+pub struct ErrorToken<T> {
+    pub inner: T,
+    pub line: usize,
+}
+
+impl<T> ErrorToken<T>
+where
+    T: fmt::Display + Error,
+{
+    pub fn new(error: T, line: usize) -> Self {
+        Self { inner: error, line }
+    }
+
+    pub fn error(&self) -> &T {
+        &self.inner
+    }
+
+    pub fn line(&self) -> usize {
+        self.line
     }
 }
+
+impl<T> fmt::Display for ErrorToken<T>
+where
+    T: fmt::Display + Error,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[line {}] {}", self.line, self.inner)
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 // Token Kind
 // -------------------------------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Literal {
-    Number,
-    String,
-    Identifier,
-}
-
-impl fmt::Display for Literal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::Number => "NUMBER",
-            Self::String => "STRING",
-            Self::Identifier => "IDENTIFIER",
-        };
-
-        f.write_str(s)
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
@@ -94,16 +101,11 @@ pub enum TokenKind {
     LessEqual,
 
     // Literals
-    Literal(Literal),
+    Number,
+    String,
+    Identifier,
 
-    // Keywords
-    Keyword(Keyword),
-
-    Eof,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Keyword {
+    // Reserved Words(Keywords)
     True,
     False,
     And,
@@ -120,6 +122,48 @@ pub enum Keyword {
     This,
     Var,
     Print,
+
+    Eof,
+}
+
+impl TokenKind {
+    pub fn is_number(self) -> bool {
+        matches!(self, Self::Identifier)
+    }
+
+    pub fn is_string(self) -> bool {
+        matches!(self, Self::Identifier)
+    }
+
+    pub fn is_identifier(self) -> bool {
+        matches!(self, Self::Identifier)
+    }
+
+    pub fn is_keyword(self) -> bool {
+        matches!(
+            self,
+            Self::True
+                | Self::False
+                | Self::And
+                | Self::Or
+                | Self::Nil
+                | Self::If
+                | Self::Else
+                | Self::For
+                | Self::While
+                | Self::Return
+                | Self::Class
+                | Self::Fun
+                | Self::Super
+                | Self::This
+                | Self::Var
+                | Self::Print
+        )
+    }
+
+    pub fn is_eof(self) -> bool {
+        matches!(self, Self::Eof)
+    }
 }
 
 impl fmt::Display for TokenKind {
@@ -144,8 +188,25 @@ impl fmt::Display for TokenKind {
             Self::GreaterEqual => "GREATER_EQUAL",
             Self::Less => "LESS",
             Self::LessEqual => "LESS_EQUAL",
-            Self::Literal(literal) => &format!("LITERAL: {literal}"),
-            Self::Keyword(keyword) => &format!("KEYWORD: {keyword}"),
+            Self::Number => "NUMBER",
+            Self::String => "STRING",
+            Self::Identifier => "IDENTIFIER",
+            Self::True => "TRUE",
+            Self::False => "FALSE",
+            Self::And => "AND",
+            Self::Or => "OR",
+            Self::Nil => "NIL",
+            Self::If => "IF",
+            Self::Else => "ELSE",
+            Self::For => "FOR",
+            Self::While => "WHILE",
+            Self::Return => "RETURN",
+            Self::Class => "CLASS",
+            Self::Fun => "FUN",
+            Self::Super => "SUPER",
+            Self::This => "THIS",
+            Self::Var => "VAR",
+            Self::Print => "PRINT",
             Self::Eof => "EOF",
         };
 
@@ -153,53 +214,23 @@ impl fmt::Display for TokenKind {
     }
 }
 
-impl fmt::Display for Keyword {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::And => "AND",
-            Self::Class => "CLASS",
-            Self::Else => "ELSE",
-            Self::False => "FALSE",
-            Self::For => "FOR",
-            Self::Fun => "FUN",
-            Self::If => "IF",
-            Self::Nil => "NIL",
-            Self::Or => "OR",
-            Self::Print => "PRINT",
-            Self::Return => "RETURN",
-            Self::Super => "SUPER",
-            Self::This => "THIS",
-            Self::True => "TRUE",
-            Self::Var => "VAR",
-            Self::While => "WHILE",
-        };
-
-        f.write_str(s)
-    }
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LiteralValue<'a> {
+    Number(f64),
+    String(&'a str),
 }
 
-// -------------------------------------------------------------------------------------------------
-// Token Formatter / Display
-// -------------------------------------------------------------------------------------------------
-
-// pub struct TokenDisplay<'token, 'src> {
-//     token: &'token Token<'src>,
-//     src: &'src str,
-// }
-
-// impl fmt::Display for TokenDisplay<'_, '_> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{} {} ", self.token.kind, self.token.lexeme(self.src))?;
-
-//         match &self.token.kind {
-//             TokenKind::String(value) => f.write_str(value),
-
-//             TokenKind::Number(value) if value.fract() == 0.0 => {
-//                 write!(f, "{value:.1}")
-//             }
-//             TokenKind::Number(value) => write!(f, "{value}"),
-
-//             _ => f.write_str("null"),
-//         }
-//     }
-// }
+impl fmt::Display for LiteralValue<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Number(value) => {
+                if value.fract() == 0.0 {
+                    write!(f, "{value:.1}")
+                } else {
+                    write!(f, "{value}")
+                }
+            }
+            Self::String(str) => write!(f, "{str}"),
+        }
+    }
+}
