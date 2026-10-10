@@ -67,7 +67,7 @@ where
     T: fmt::Display + Error,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] {}", self.line, self.inner)
+        write!(f, "[line {}] Error: {}", self.line, self.inner)
     }
 }
 

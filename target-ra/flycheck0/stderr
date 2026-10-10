@@ -15,4 +15,4 @@ warning: unused dependency `bytes`
    |
 help: consider removing the dependency on `bytes`
 warning: `codecrafters-interpreter` (manifest) generated 2 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.34s
