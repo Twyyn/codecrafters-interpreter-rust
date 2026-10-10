@@ -17,14 +17,22 @@ fn main() -> Result<()> {
     let source =
         fs::read_to_string(&filename).with_context(|| format!("Failed to read {filename}"))?;
 
+    let mut had_error = false;
     for result in Lexer::new(&source) {
         match result {
             Ok(token) => println!("{token}"),
-            Err(error_token) => println!("{error_token}"),
+            Err(error_token) => {
+                had_error = true;
+                println!("{error_token}");
+            }
         }
     }
 
-    println!("EOF  null");
+    // println!("EOF  null");
+
+    if had_error {
+        std::process::exit(65);
+    }
 
     Ok(())
 }
