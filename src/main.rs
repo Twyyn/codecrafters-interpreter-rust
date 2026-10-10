@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         }
     }
 
-    println!("EOF NULL");
+    println!("EOF  null");
 
     if had_error {
         std::process::exit(65);
