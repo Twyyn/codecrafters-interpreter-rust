@@ -36,8 +36,8 @@ fn tokenize(filepath: &Path) -> Result<ExitCode> {
         match result {
             Ok(token) => println!("{token}"),
             Err(error) => {
-                had_error = true;
                 eprintln!("{error}");
+                had_error = true;
             }
         }
     }
