@@ -74,7 +74,7 @@ impl<'src> Lexer<'src> {
             '/' => TokenKind::Slash,
             '*' => TokenKind::Star,
             '!' => {
-                if self.consume_if('=') {
+                if self.advance_if('=') {
                     TokenKind::BangEqual
                 } else {
                     TokenKind::Bang
@@ -82,7 +82,7 @@ impl<'src> Lexer<'src> {
             }
 
             '=' => {
-                if self.consume_if('=') {
+                if self.advance_if('=') {
                     TokenKind::EqualEqual
                 } else {
                     TokenKind::Equal
@@ -90,7 +90,7 @@ impl<'src> Lexer<'src> {
             }
 
             '>' => {
-                if self.consume_if('=') {
+                if self.advance_if('=') {
                     TokenKind::GreaterEqual
                 } else {
                     TokenKind::Greater
@@ -98,7 +98,7 @@ impl<'src> Lexer<'src> {
             }
 
             '<' => {
-                if self.consume_if('=') {
+                if self.advance_if('=') {
                     TokenKind::LessEqual
                 } else {
                     TokenKind::Less
@@ -175,12 +175,12 @@ impl<'src> Lexer<'src> {
             match ch {
                 '"' => {
                     let lexeme = self.slice_to_cursor(offset);
-                    let literal = &self.source[offset + 1..self.cursor - 1];
+                    let value = &self.source[offset + 1..self.cursor - 1];
 
                     return Ok(Token {
                         kind: TokenKind::String,
                         lexeme,
-                        literal: Some(Literal::String(literal)),
+                        literal: Some(Literal::String(value)),
                         index: start_index,
                     });
                 }
@@ -263,7 +263,7 @@ impl<'src> Lexer<'src> {
         self.cursor = end;
     }
 
-    fn consume_if(&mut self, expected: char) -> bool {
+    fn advance_if(&mut self, expected: char) -> bool {
         if self.peek() != Some(expected) {
             return false;
         }
