@@ -28,21 +28,21 @@ fn main() -> Result<ExitCode> {
 
 fn tokenize(filepath: &Path) -> Result<ExitCode> {
     let source = fs::read_to_string(filepath)
-        .with_context(|| format!("Unable to read source file: {}", filepath.display()))?;
+        .with_context(|| format!("Failed to read source file '{}'", filepath.display()))?;
 
-    let mut had_errors = false;
+    let mut had_error = false;
 
     for result in Lexer::new(&source) {
         match result {
             Ok(token) => println!("{token}"),
             Err(error) => {
+                had_error = true;
                 eprintln!("{error}");
-                had_errors = true;
             }
         }
     }
 
-    if had_errors {
+    if had_error {
         return Ok(ExitCode::from(65));
     }
 
