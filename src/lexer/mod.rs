@@ -145,13 +145,7 @@ impl<'a> Lexer<'a> {
             _ => TokenKind::Identifier,
         };
 
-        let literal = if matches!(kind, TokenKind::Identifier) {
-            Some(LiteralValue::String(lexeme))
-        } else {
-            None
-        };
-
-        Token::new(kind, lexeme, literal)
+        Token::new(kind, lexeme, None)
     }
 
     fn scan_string(&mut self, offset: usize) -> LexResult<'a> {
