@@ -10,12 +10,6 @@ use std::{
 use thiserror::Error;
 
 // -------------------------------------------------------------------------------------------------
-// Lexer Result (Either An 'Actual' Token Or A Spanned “Token” Representing A Lexer Error)
-// -------------------------------------------------------------------------------------------------
-
-type LexResult<'a> = Result<Token<'a>, Spanned<LexError>>;
-
-// -------------------------------------------------------------------------------------------------
 // Lexer (Tokenizer) & Iterator
 // -------------------------------------------------------------------------------------------------
 
@@ -53,7 +47,7 @@ impl<'a> Lexer<'a> {
         (tokens, errors)
     }
 
-    fn scan_token(&mut self) -> LexResult<'a> {
+    fn scan_token(&mut self) -> Result<Token<'a>, Spanned<LexError>> {
         self.skip_trivia();
 
         let offset = self.cursor;
@@ -81,6 +75,7 @@ impl<'a> Lexer<'a> {
                     TokenKind::Bang
                 }
             }
+
             '=' => {
                 if self.consume_if('=') {
                     TokenKind::EqualEqual
@@ -105,13 +100,20 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            '"' => return self.scan_string(offset),
-            '0'..='9' => return self.scan_number(offset),
-            'a'..='z' | 'A'..='Z' | '_' => return Ok(self.scan_identifier(offset)),
+            '"' => {
+                return self.scan_string(offset);
+            }
+
+            '0'..='9' => {
+                return self.scan_number(offset);
+            }
+
+            'a'..='z' | 'A'..='Z' | '_' => {
+                return Ok(self.scan_identifier(offset));
+            }
 
             _ => {
-                let error = LexError::UnexpectedChar { ch };
-                return Err(Spanned::new(error, self.line));
+                return Err(Spanned::new(LexError::UnexpectedChar { ch }, self.line));
             }
         };
 
@@ -148,7 +150,7 @@ impl<'a> Lexer<'a> {
         Token::new(kind, lexeme, None)
     }
 
-    fn scan_string(&mut self, offset: usize) -> LexResult<'a> {
+    fn scan_string(&mut self, offset: usize) -> Result<Token<'a>, Spanned<LexError>> {
         let start_line = self.line;
 
         while let Some(ch) = self.bump() {
@@ -163,6 +165,7 @@ impl<'a> Lexer<'a> {
                         Some(LiteralValue::String(literal)),
                     ));
                 }
+
                 '\n' => break,
                 _ => {}
             }
@@ -171,7 +174,7 @@ impl<'a> Lexer<'a> {
         Err(Spanned::new(LexError::UnterminatedString, start_line))
     }
 
-    fn scan_number(&mut self, offset: usize) -> LexResult<'a> {
+    fn scan_number(&mut self, offset: usize) -> Result<Token<'a>, Spanned<LexError>> {
         self.advance_while(|ch| ch.is_ascii_digit());
 
         let remaining = self.remaining_bytes();
@@ -183,20 +186,22 @@ impl<'a> Lexer<'a> {
 
         let lexeme = self.slice_to_cursor(offset);
         let value = lexeme.parse::<f64>().map_err(|error| {
-            let error = LexError::InvalidNumber {
-                text: lexeme.into(),
-                error,
-            };
-
-            Spanned::new(error, self.line)
+            Spanned::new(
+                LexError::InvalidNumber {
+                    text: lexeme.into(),
+                    error,
+                },
+                self.line,
+            )
         })?;
 
         if !value.is_finite() {
-            let error = LexError::NumberOverflow {
-                text: lexeme.into(),
-            };
-
-            return Err(Spanned::new(error, self.line));
+            return Err(Spanned::new(
+                LexError::NumberOverflow {
+                    text: lexeme.into(),
+                },
+                self.line,
+            ));
         }
 
         Ok(Token::new(
@@ -285,7 +290,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = LexResult<'a>;
+    type Item = Result<Token<'a>, Spanned<LexError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -297,6 +302,7 @@ impl<'a> Iterator for Lexer<'a> {
                 self.finished = true;
                 Some(Ok(token))
             }
+
             result => Some(result),
         }
     }
