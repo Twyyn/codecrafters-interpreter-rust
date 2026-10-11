@@ -6,37 +6,16 @@ use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Token<'src> {
-    kind: TokenKind,
-    lexeme: &'src str,
-    literal: Option<LiteralValue<'src>>,
-}
-
-impl<'src> Token<'src> {
-    pub fn new(kind: TokenKind, lexeme: &'src str, literal: Option<LiteralValue<'src>>) -> Self {
-        Self {
-            kind,
-            lexeme,
-            literal,
-        }
-    }
-
-    pub fn kind(&self) -> TokenKind {
-        self.kind
-    }
-
-    pub fn lexeme(&self) -> &'src str {
-        self.lexeme
-    }
-
-    pub fn literal(&self) -> Option<LiteralValue<'src>> {
-        self.literal
-    }
+    pub kind: TokenKind,
+    pub lexeme: &'src str,
+    pub literal: Option<Literal<'src>>,
+    pub index: u32,
 }
 
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.literal {
-            Some(literal) => write!(f, "{} {} {literal}", self.kind, self.lexeme),
+            Some(literal) => write!(f, "{} {} {literal} ", self.kind, self.lexeme),
             None => write!(f, "{} {} null", self.kind, self.lexeme),
         }
     }
@@ -48,30 +27,13 @@ impl fmt::Display for Token<'_> {
 
 #[derive(Debug, Clone)]
 pub struct Spanned<T> {
-    inner: T,
-    line: usize,
-}
-
-impl<T> Spanned<T>
-where
-    T: fmt::Display,
-{
-    pub fn new(inner: T, line: usize) -> Self {
-        Self { inner, line }
-    }
-
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
-
-    pub fn line(&self) -> usize {
-        self.line
-    }
+    pub inner: T,
+    pub index: u32,
 }
 
 impl<T: fmt::Display> fmt::Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] Error: {}", self.line, self.inner)
+        write!(f, "[line {}] Error: {}", self.index, self.inner)
     }
 }
 
@@ -183,12 +145,12 @@ impl fmt::Display for TokenKind {
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LiteralValue<'a> {
+pub enum Literal<'a> {
     Number(f64),
     String(&'a str),
 }
 
-impl fmt::Display for LiteralValue<'_> {
+impl fmt::Display for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Number(value) => {

@@ -1,6 +1,6 @@
 mod token;
 
-use self::token::{LiteralValue, Spanned, Token, TokenKind};
+use self::token::{Literal, Spanned, Token, TokenKind};
 use memchr::memchr2;
 use std::{
     iter::{FusedIterator, Peekable},
@@ -18,7 +18,7 @@ pub struct Lexer<'src> {
     source: &'src str,
     chars: Peekable<Chars<'src>>,
     cursor: usize,
-    line: usize,
+    index: u32,
     finished: bool,
 }
 
@@ -28,7 +28,7 @@ impl<'src> Lexer<'src> {
             source,
             chars: source.chars().peekable(),
             cursor: 0,
-            line: 1,
+            index: 1,
             finished: false,
         }
     }
@@ -53,7 +53,12 @@ impl<'src> Lexer<'src> {
         let offset = self.cursor;
 
         let Some(ch) = self.bump() else {
-            return Ok(Token::new(TokenKind::Eof, "", None));
+            return Ok(Token {
+                kind: TokenKind::Eof,
+                lexeme: "",
+                literal: None,
+                index: self.index,
+            });
         };
 
         let kind = match ch {
@@ -113,13 +118,21 @@ impl<'src> Lexer<'src> {
             }
 
             _ => {
-                return Err(Spanned::new(LexError::UnexpectedChar { ch }, self.line));
+                return Err(Spanned {
+                    inner: LexError::UnexpectedChar { ch },
+                    index: self.index,
+                });
             }
         };
 
         let lexeme = self.slice_to_cursor(offset);
 
-        Ok(Token::new(kind, lexeme, None))
+        Ok(Token {
+            kind,
+            lexeme,
+            literal: None,
+            index: self.index,
+        })
     }
 
     fn scan_identifier(&mut self, offset: usize) -> Token<'src> {
@@ -147,11 +160,16 @@ impl<'src> Lexer<'src> {
             _ => TokenKind::Identifier,
         };
 
-        Token::new(kind, lexeme, None)
+        Token {
+            kind,
+            lexeme,
+            literal: None,
+            index: self.index,
+        }
     }
 
     fn scan_string(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
-        let start_line = self.line;
+        let start_index = self.index;
 
         while let Some(ch) = self.bump() {
             match ch {
@@ -159,11 +177,12 @@ impl<'src> Lexer<'src> {
                     let lexeme = self.slice_to_cursor(offset);
                     let literal = &self.source[offset + 1..self.cursor - 1];
 
-                    return Ok(Token::new(
-                        TokenKind::String,
+                    return Ok(Token {
+                        kind: TokenKind::String,
                         lexeme,
-                        Some(LiteralValue::String(literal)),
-                    ));
+                        literal: Some(Literal::String(literal)),
+                        index: start_index,
+                    });
                 }
 
                 '\n' => break,
@@ -171,7 +190,10 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        Err(Spanned::new(LexError::UnterminatedString, start_line))
+        Err(Spanned {
+            inner: LexError::UnterminatedString,
+            index: start_index,
+        })
     }
 
     fn scan_number(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
@@ -185,30 +207,29 @@ impl<'src> Lexer<'src> {
         }
 
         let lexeme = self.slice_to_cursor(offset);
-        let value = lexeme.parse::<f64>().map_err(|error| {
-            Spanned::new(
-                LexError::InvalidNumber {
-                    text: lexeme.into(),
-                    error,
-                },
-                self.line,
-            )
+        let value = lexeme.parse::<f64>().map_err(|error| Spanned {
+            inner: LexError::InvalidNumber {
+                text: lexeme.into(),
+                error,
+            },
+            index: self.index,
         })?;
 
         if !value.is_finite() {
-            return Err(Spanned::new(
-                LexError::NumberOverflow {
+            return Err(Spanned {
+                inner: LexError::NumberOverflow {
                     text: lexeme.into(),
                 },
-                self.line,
-            ));
+                index: self.index,
+            });
         }
 
-        Ok(Token::new(
-            TokenKind::Number,
+        Ok(Token {
+            kind: TokenKind::Number,
             lexeme,
-            Some(LiteralValue::Number(value)),
-        ))
+            literal: Some(Literal::Number(value)),
+            index: self.index,
+        })
     }
 
     fn skip_trivia(&mut self) {
@@ -259,14 +280,14 @@ impl<'src> Lexer<'src> {
 
         match ch {
             '\r' => {
-                self.line += 1;
+                self.index += 1;
             }
 
             '\n' => {
                 let trailing = offset > 0 && self.source.as_bytes()[offset - 1] == b'\r';
 
                 if !trailing {
-                    self.line += 1;
+                    self.index += 1;
                 }
             }
 
@@ -298,7 +319,7 @@ impl<'a> Iterator for Lexer<'a> {
         }
 
         match self.scan_token() {
-            Ok(token) if matches!(token.kind(), TokenKind::Eof) => {
+            Ok(token) if matches!(token.kind, TokenKind::Eof) => {
                 self.finished = true;
                 Some(Ok(token))
             }
