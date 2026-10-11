@@ -1,19 +1,27 @@
 mod token;
 
-use std::{iter::Peekable, num::ParseFloatError, str::Chars};
-
 use self::token::{ErrorToken, LiteralValue, Token, TokenKind};
+use memchr::memchr2;
+use std::{
+    iter::{FusedIterator, Peekable},
+    num::ParseFloatError,
+    str::Chars,
+};
 use thiserror::Error;
 
 type LexResult<'a> = Result<Token<'a>, ErrorToken<LexError>>;
+
+// -------------------------------------------------------------------------------------------------
+// Lexer(Tokenizer) & Iterator
+// -------------------------------------------------------------------------------------------------
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
     src: &'a str,
     chars: Peekable<Chars<'a>>,
     cursor: usize,
-    offset: usize,
-    line_offset: usize,
+    line: usize,
+    finished: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -22,15 +30,29 @@ impl<'a> Lexer<'a> {
             src: input,
             chars: input.chars().peekable(),
             cursor: 0,
-            offset: 0,
-            line_offset: 1,
+            line: 1,
+            finished: false,
         }
     }
 
-    fn next_token(&mut self) -> LexResult<'a> {
+    pub fn tokenize(&mut self) -> (Vec<Token<'a>>, Vec<ErrorToken<LexError>>) {
+        let mut tokens = Vec::new();
+        let mut errors = Vec::new();
+
+        for result in self.by_ref() {
+            match result {
+                Ok(token) => tokens.push(token),
+                Err(error) => errors.push(error),
+            }
+        }
+
+        (tokens, errors)
+    }
+
+    fn scan_token(&mut self) -> LexResult<'a> {
         self.skip_trivia();
 
-        self.offset = self.cursor;
+        let offset = self.cursor;
 
         let Some(ch) = self.bump() else {
             return Ok(Token::new(TokenKind::Eof, "", None));
@@ -49,14 +71,14 @@ impl<'a> Lexer<'a> {
             '/' => TokenKind::Slash,
             '*' => TokenKind::Star,
             '!' => {
-                if self.consume_next('=') {
+                if self.consume_if('=') {
                     TokenKind::BangEqual
                 } else {
                     TokenKind::Bang
                 }
             }
             '=' => {
-                if self.consume_next('=') {
+                if self.consume_if('=') {
                     TokenKind::EqualEqual
                 } else {
                     TokenKind::Equal
@@ -64,7 +86,7 @@ impl<'a> Lexer<'a> {
             }
 
             '>' => {
-                if self.consume_next('=') {
+                if self.consume_if('=') {
                     TokenKind::GreaterEqual
                 } else {
                     TokenKind::Greater
@@ -72,30 +94,32 @@ impl<'a> Lexer<'a> {
             }
 
             '<' => {
-                if self.consume_next('=') {
+                if self.consume_if('=') {
                     TokenKind::LessEqual
                 } else {
                     TokenKind::Less
                 }
             }
 
-            '"' => return self.string(),
-            '0'..='9' => return self.number(),
-            'a'..='z' | 'A'..='Z' | '_' => return Ok(self.identifier()),
+            '"' => return self.scan_string(offset),
+            '0'..='9' => return self.scan_number(offset),
+            'a'..='z' | 'A'..='Z' | '_' => return Ok(self.scan_identifier(offset)),
 
             _ => {
-                let error = LexError::UnexpectedChar(ch);
-                return Err(ErrorToken::new(error, self.line_offset));
+                let error = LexError::UnexpectedChar { ch };
+                return Err(ErrorToken::new(error, self.line));
             }
         };
 
-        Ok(Token::new(kind, self.lexeme(), None))
+        let lexeme = self.slice_to_cursor(offset);
+
+        Ok(Token::new(kind, lexeme, None))
     }
 
-    fn identifier(&mut self) -> Token<'a> {
-        self.consume_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
+    fn scan_identifier(&mut self, offset: usize) -> Token<'a> {
+        self.advance_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
 
-        let lexeme = self.lexeme();
+        let lexeme = self.slice_to_cursor(offset);
 
         let kind = match lexeme {
             "true" => TokenKind::True,
@@ -117,7 +141,7 @@ impl<'a> Lexer<'a> {
             _ => TokenKind::Identifier,
         };
 
-        let literal = if kind.is_identifier() {
+        let literal = if matches!(kind, TokenKind::Identifier) {
             Some(LiteralValue::String(lexeme))
         } else {
             None
@@ -126,14 +150,14 @@ impl<'a> Lexer<'a> {
         Token::new(kind, lexeme, literal)
     }
 
-    fn string(&mut self) -> LexResult<'a> {
-        let start_line = self.line_offset;
+    fn scan_string(&mut self, offset: usize) -> LexResult<'a> {
+        let start_line = self.line;
 
         while let Some(ch) = self.bump() {
             match ch {
                 '"' => {
-                    let lexeme = self.lexeme();
-                    let literal = &self.src[self.offset + 1..self.cursor - 1];
+                    let lexeme = self.slice_to_cursor(offset);
+                    let literal = &self.src[offset + 1..self.cursor - 1];
 
                     return Ok(Token::new(
                         TokenKind::String,
@@ -149,23 +173,33 @@ impl<'a> Lexer<'a> {
         Err(ErrorToken::new(LexError::UnterminatedString, start_line))
     }
 
-    fn number(&mut self) -> LexResult<'a> {
-        self.consume_while(|ch| ch.is_ascii_digit());
+    fn scan_number(&mut self, offset: usize) -> LexResult<'a> {
+        self.advance_while(|ch| ch.is_ascii_digit());
 
-        if self.peek() == Some('.') && self.peek_next().is_some_and(|ch| ch.is_ascii_digit()) {
+        let remaining = self.remaining_bytes();
+
+        if remaining.first() == Some(&b'.') && remaining.get(1).is_some_and(u8::is_ascii_digit) {
             self.bump();
-            self.consume_while(|ch| ch.is_ascii_digit());
+            self.advance_while(|ch| ch.is_ascii_digit());
         }
 
-        let lexeme = self.lexeme();
-        let value = lexeme.parse::<f64>().map_err(|source| {
+        let lexeme = self.slice_to_cursor(offset);
+        let value = lexeme.parse::<f64>().map_err(|error| {
             let error = LexError::InvalidNumber {
                 text: lexeme.into(),
-                source,
+                error,
             };
 
-            ErrorToken::new(error, self.line_offset)
+            ErrorToken::new(error, self.line)
         })?;
+
+        if !value.is_finite() {
+            let error = LexError::NumberOverflow {
+                text: lexeme.into(),
+            };
+
+            return Err(ErrorToken::new(error, self.line));
+        }
 
         Ok(Token::new(
             TokenKind::Number,
@@ -176,26 +210,36 @@ impl<'a> Lexer<'a> {
 
     fn skip_trivia(&mut self) {
         loop {
-            self.consume_while(|ch| ch.is_ascii_whitespace());
+            self.advance_while(|ch| ch.is_ascii_whitespace());
 
-            if self.peek() != Some('/') || self.peek_next() != Some('/') {
+            let bytes = self.remaining_bytes();
+
+            if !bytes.starts_with(b"//") {
                 break;
             }
 
-            self.bump();
-            self.bump();
+            let comment_length = memchr2(b'\n', b'\r', bytes).unwrap_or(bytes.len());
 
-            self.consume_while(|ch| ch != '\n');
+            self.advance_bytes(comment_length);
         }
     }
 
-    fn consume_while(&mut self, predicate: impl Fn(char) -> bool) {
+    fn advance_while(&mut self, predicate: impl Fn(char) -> bool) {
         while self.peek().is_some_and(&predicate) {
             self.bump();
         }
     }
 
-    fn consume_next(&mut self, expected: char) -> bool {
+    fn advance_bytes(&mut self, n: usize) {
+        let end = self.cursor + n;
+
+        let remaining = &self.src[end..];
+
+        self.chars = remaining.chars().peekable();
+        self.cursor = end;
+    }
+
+    fn consume_if(&mut self, expected: char) -> bool {
         if self.peek() != Some(expected) {
             return false;
         }
@@ -206,11 +250,24 @@ impl<'a> Lexer<'a> {
 
     fn bump(&mut self) -> Option<char> {
         let ch = self.chars.next()?;
+        let offset = self.cursor;
 
         self.cursor += ch.len_utf8();
 
-        if ch == '\n' {
-            self.line_offset += 1;
+        match ch {
+            '\r' => {
+                self.line += 1;
+            }
+
+            '\n' => {
+                let trailing = offset > 0 && self.src.as_bytes()[offset - 1] == b'\r';
+
+                if !trailing {
+                    self.line += 1;
+                }
+            }
+
+            _ => {}
         }
 
         Some(ch)
@@ -220,12 +277,12 @@ impl<'a> Lexer<'a> {
         self.chars.peek().copied()
     }
 
-    fn peek_next(&self) -> Option<char> {
-        self.chars.clone().nth(1)
+    fn slice_to_cursor(&self, offset: usize) -> &'a str {
+        &self.src[offset..self.cursor]
     }
 
-    fn lexeme(&self) -> &'a str {
-        &self.src[self.offset..self.cursor]
+    fn remaining_bytes(&self) -> &'a [u8] {
+        &self.src.as_bytes()[self.cursor..]
     }
 }
 
@@ -233,25 +290,41 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = LexResult<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_token() {
-            Ok(token) if token.kind.is_eof() => None,
+        if self.finished {
+            return None;
+        }
+
+        match self.scan_token() {
+            Ok(token) if matches!(token.kind(), TokenKind::Eof) => {
+                self.finished = true;
+                Some(Ok(token))
+            }
             result => Some(result),
         }
     }
 }
 
+impl FusedIterator for Lexer<'_> {}
+
+// -------------------------------------------------------------------------------------------------
+// Lexer Errors
+// -------------------------------------------------------------------------------------------------
+
 #[derive(Debug, Error)]
 pub enum LexError {
-    #[error("Unexpected character: {0}")]
-    UnexpectedChar(char),
+    #[error("Unexpected character: {ch}")]
+    UnexpectedChar { ch: char },
 
     #[error("Unterminated string.")]
     UnterminatedString,
 
-    #[error("Invalid number '{text}': {source}")]
+    #[error("Invalid number '{text}': {error}")]
     InvalidNumber {
-        text: String,
         #[source]
-        source: ParseFloatError,
+        error: ParseFloatError,
+        text: String,
     },
+
+    #[error("Number overflow: '{text}' is out of range")]
+    NumberOverflow { text: String },
 }

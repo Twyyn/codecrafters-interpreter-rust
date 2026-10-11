@@ -7,9 +7,9 @@ use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Token<'a> {
-    pub kind: TokenKind,
-    pub lexeme: &'a str,
-    pub literal: Option<LiteralValue<'a>>,
+    kind: TokenKind,
+    lexeme: &'a str,
+    literal: Option<LiteralValue<'a>>,
 }
 
 impl<'a> Token<'a> {
@@ -19,6 +19,10 @@ impl<'a> Token<'a> {
             lexeme,
             literal,
         }
+    }
+
+    pub fn kind(&self) -> TokenKind {
+        self.kind
     }
 
     pub fn lexeme(&self) -> &'a str {
@@ -41,8 +45,8 @@ impl fmt::Display for Token<'_> {
 
 #[derive(Debug, Clone)]
 pub struct ErrorToken<T> {
-    pub inner: T,
-    pub line: usize,
+    error: T,
+    line: usize,
 }
 
 impl<T> ErrorToken<T>
@@ -50,11 +54,11 @@ where
     T: fmt::Display + Error,
 {
     pub fn new(error: T, line: usize) -> Self {
-        Self { inner: error, line }
+        Self { error, line }
     }
 
     pub fn error(&self) -> &T {
-        &self.inner
+        &self.error
     }
 
     pub fn line(&self) -> usize {
@@ -67,7 +71,7 @@ where
     T: fmt::Display + Error,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] Error: {}", self.line, self.inner)
+        write!(f, "[line {}] Error: {}", self.line, self.error)
     }
 }
 
@@ -105,7 +109,7 @@ pub enum TokenKind {
     String,
     Identifier,
 
-    // Reserved Words(Keywords)
+    // Keywords
     True,
     False,
     And,
@@ -124,46 +128,6 @@ pub enum TokenKind {
     Print,
 
     Eof,
-}
-
-impl TokenKind {
-    pub fn is_number(self) -> bool {
-        matches!(self, Self::Identifier)
-    }
-
-    pub fn is_string(self) -> bool {
-        matches!(self, Self::Identifier)
-    }
-
-    pub fn is_identifier(self) -> bool {
-        matches!(self, Self::Identifier)
-    }
-
-    pub fn is_keyword(self) -> bool {
-        matches!(
-            self,
-            Self::True
-                | Self::False
-                | Self::And
-                | Self::Or
-                | Self::Nil
-                | Self::If
-                | Self::Else
-                | Self::For
-                | Self::While
-                | Self::Return
-                | Self::Class
-                | Self::Fun
-                | Self::Super
-                | Self::This
-                | Self::Var
-                | Self::Print
-        )
-    }
-
-    pub fn is_eof(self) -> bool {
-        matches!(self, Self::Eof)
-    }
 }
 
 impl fmt::Display for TokenKind {
@@ -213,6 +177,10 @@ impl fmt::Display for TokenKind {
         f.write_str(s)
     }
 }
+
+// -------------------------------------------------------------------------------------------------
+// Literal Value
+// -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LiteralValue<'a> {

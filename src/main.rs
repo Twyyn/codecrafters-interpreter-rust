@@ -1,38 +1,49 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
 use codecrafters_interpreter::Lexer;
-use std::{env, fs};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 
-fn main() -> Result<()> {
-    let mut args = env::args();
-    let program = args.next().unwrap_or_else(|| "program".into());
+#[derive(Parser, Debug)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    let (Some(command), Some(filename)) = (args.next(), args.next()) else {
-        bail!("Usage: {program} tokenize <filename>")
-    };
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Tokenize { filepath: PathBuf },
+}
+fn main() -> Result<ExitCode> {
+    let args = Args::parse();
 
-    if command != "tokenize" {
-        bail!("Unknown command: {command}")
+    match args.command {
+        Commands::Tokenize { filepath } => tokenize(&filepath),
     }
+}
 
-    let source =
-        fs::read_to_string(&filename).with_context(|| format!("Failed to read {filename}"))?;
+fn tokenize(filepath: &Path) -> Result<ExitCode> {
+    let source = fs::read_to_string(filepath)
+        .with_context(|| format!("Failed to read source file '{}'", filepath.display()))?;
 
-    let mut had_error = false;
+    let mut had_errors = false;
+
     for result in Lexer::new(&source) {
         match result {
             Ok(token) => println!("{token}"),
-            Err(error_token) => {
-                had_error = true;
-                eprintln!("{error_token}");
+            Err(error) => {
+                eprintln!("{error}");
+                had_errors = true;
             }
         }
     }
 
-    println!("EOF  null");
-
-    if had_error {
-        std::process::exit(65);
-    }
-
-    Ok(())
+    Ok(if had_errors {
+        ExitCode::from(65)
+    } else {
+        ExitCode::SUCCESS
+    })
 }
