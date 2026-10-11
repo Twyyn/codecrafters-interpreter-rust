@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 
 // -------------------------------------------------------------------------------------------------
@@ -43,22 +42,26 @@ impl fmt::Display for Token<'_> {
     }
 }
 
+// -------------------------------------------------------------------------------------------------
+// Spanned (e.g., Location Of An Error)
+// -------------------------------------------------------------------------------------------------
+
 #[derive(Debug, Clone)]
-pub struct ErrorToken<T> {
-    error: T,
+pub struct Spanned<T> {
+    inner: T,
     line: usize,
 }
 
-impl<T> ErrorToken<T>
+impl<T> Spanned<T>
 where
-    T: fmt::Display + Error,
+    T: fmt::Display,
 {
-    pub fn new(error: T, line: usize) -> Self {
-        Self { error, line }
+    pub fn new(inner: T, line: usize) -> Self {
+        Self { inner, line }
     }
 
-    pub fn error(&self) -> &T {
-        &self.error
+    pub fn inner(&self) -> &T {
+        &self.inner
     }
 
     pub fn line(&self) -> usize {
@@ -66,12 +69,9 @@ where
     }
 }
 
-impl<T> fmt::Display for ErrorToken<T>
-where
-    T: fmt::Display + Error,
-{
+impl<T: fmt::Display> fmt::Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] Error: {}", self.line, self.error)
+        write!(f, "[line {}] Error: {}", self.line, self.inner)
     }
 }
 
@@ -179,7 +179,7 @@ impl fmt::Display for TokenKind {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Literal Value
+// Literal Values (i.e., the Concrete Values)
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]

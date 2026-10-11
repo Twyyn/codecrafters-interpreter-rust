@@ -17,6 +17,7 @@ struct Args {
 enum Commands {
     Tokenize { filepath: PathBuf },
 }
+
 fn main() -> Result<ExitCode> {
     let args = Args::parse();
 
@@ -27,7 +28,7 @@ fn main() -> Result<ExitCode> {
 
 fn tokenize(filepath: &Path) -> Result<ExitCode> {
     let source = fs::read_to_string(filepath)
-        .with_context(|| format!("Failed to read source file '{}'", filepath.display()))?;
+        .with_context(|| format!("Unable to read source file: {}", filepath.display()))?;
 
     let mut had_errors = false;
 
@@ -41,9 +42,9 @@ fn tokenize(filepath: &Path) -> Result<ExitCode> {
         }
     }
 
-    Ok(if had_errors {
-        ExitCode::from(65)
-    } else {
-        ExitCode::SUCCESS
-    })
+    if had_errors {
+        return Ok(ExitCode::from(65));
+    }
+
+    Ok(ExitCode::SUCCESS)
 }

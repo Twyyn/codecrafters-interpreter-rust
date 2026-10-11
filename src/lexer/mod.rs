@@ -1,6 +1,6 @@
 mod token;
 
-use self::token::{ErrorToken, LiteralValue, Token, TokenKind};
+use self::token::{LiteralValue, Spanned, Token, TokenKind};
 use memchr::memchr2;
 use std::{
     iter::{FusedIterator, Peekable},
@@ -9,15 +9,19 @@ use std::{
 };
 use thiserror::Error;
 
-type LexResult<'a> = Result<Token<'a>, ErrorToken<LexError>>;
+// -------------------------------------------------------------------------------------------------
+// Lexer Result (Either An 'Actual' Token Or A Spanned “Token” Representing A Lexer Error)
+// -------------------------------------------------------------------------------------------------
+
+type LexResult<'a> = Result<Token<'a>, Spanned<LexError>>;
 
 // -------------------------------------------------------------------------------------------------
-// Lexer(Tokenizer) & Iterator
+// Lexer (Tokenizer) & Iterator
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
-    src: &'a str,
+    source: &'a str,
     chars: Peekable<Chars<'a>>,
     cursor: usize,
     line: usize,
@@ -25,17 +29,17 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self {
-            src: input,
-            chars: input.chars().peekable(),
+            source,
+            chars: source.chars().peekable(),
             cursor: 0,
             line: 1,
             finished: false,
         }
     }
 
-    pub fn tokenize(&mut self) -> (Vec<Token<'a>>, Vec<ErrorToken<LexError>>) {
+    pub fn tokenize(&mut self) -> (Vec<Token<'a>>, Vec<Spanned<LexError>>) {
         let mut tokens = Vec::new();
         let mut errors = Vec::new();
 
@@ -107,7 +111,7 @@ impl<'a> Lexer<'a> {
 
             _ => {
                 let error = LexError::UnexpectedChar { ch };
-                return Err(ErrorToken::new(error, self.line));
+                return Err(Spanned::new(error, self.line));
             }
         };
 
@@ -157,7 +161,7 @@ impl<'a> Lexer<'a> {
             match ch {
                 '"' => {
                     let lexeme = self.slice_to_cursor(offset);
-                    let literal = &self.src[offset + 1..self.cursor - 1];
+                    let literal = &self.source[offset + 1..self.cursor - 1];
 
                     return Ok(Token::new(
                         TokenKind::String,
@@ -170,7 +174,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Err(ErrorToken::new(LexError::UnterminatedString, start_line))
+        Err(Spanned::new(LexError::UnterminatedString, start_line))
     }
 
     fn scan_number(&mut self, offset: usize) -> LexResult<'a> {
@@ -190,7 +194,7 @@ impl<'a> Lexer<'a> {
                 error,
             };
 
-            ErrorToken::new(error, self.line)
+            Spanned::new(error, self.line)
         })?;
 
         if !value.is_finite() {
@@ -198,7 +202,7 @@ impl<'a> Lexer<'a> {
                 text: lexeme.into(),
             };
 
-            return Err(ErrorToken::new(error, self.line));
+            return Err(Spanned::new(error, self.line));
         }
 
         Ok(Token::new(
@@ -233,7 +237,7 @@ impl<'a> Lexer<'a> {
     fn advance_bytes(&mut self, n: usize) {
         let end = self.cursor + n;
 
-        let remaining = &self.src[end..];
+        let remaining = &self.source[end..];
 
         self.chars = remaining.chars().peekable();
         self.cursor = end;
@@ -260,7 +264,7 @@ impl<'a> Lexer<'a> {
             }
 
             '\n' => {
-                let trailing = offset > 0 && self.src.as_bytes()[offset - 1] == b'\r';
+                let trailing = offset > 0 && self.source.as_bytes()[offset - 1] == b'\r';
 
                 if !trailing {
                     self.line += 1;
@@ -278,11 +282,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn slice_to_cursor(&self, offset: usize) -> &'a str {
-        &self.src[offset..self.cursor]
+        &self.source[offset..self.cursor]
     }
 
     fn remaining_bytes(&self) -> &'a [u8] {
-        &self.src.as_bytes()[self.cursor..]
+        &self.source.as_bytes()[self.cursor..]
     }
 }
 
