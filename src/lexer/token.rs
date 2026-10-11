@@ -5,14 +5,14 @@ use std::fmt;
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Token<'a> {
+pub struct Token<'src> {
     kind: TokenKind,
-    lexeme: &'a str,
-    literal: Option<LiteralValue<'a>>,
+    lexeme: &'src str,
+    literal: Option<LiteralValue<'src>>,
 }
 
-impl<'a> Token<'a> {
-    pub fn new(kind: TokenKind, lexeme: &'a str, literal: Option<LiteralValue<'a>>) -> Self {
+impl<'src> Token<'src> {
+    pub fn new(kind: TokenKind, lexeme: &'src str, literal: Option<LiteralValue<'src>>) -> Self {
         Self {
             kind,
             lexeme,
@@ -24,11 +24,11 @@ impl<'a> Token<'a> {
         self.kind
     }
 
-    pub fn lexeme(&self) -> &'a str {
+    pub fn lexeme(&self) -> &'src str {
         self.lexeme
     }
 
-    pub fn literal(&self) -> Option<LiteralValue<'a>> {
+    pub fn literal(&self) -> Option<LiteralValue<'src>> {
         self.literal
     }
 }

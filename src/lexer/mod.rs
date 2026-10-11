@@ -14,16 +14,16 @@ use thiserror::Error;
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct Lexer<'a> {
-    source: &'a str,
-    chars: Peekable<Chars<'a>>,
+pub struct Lexer<'src> {
+    source: &'src str,
+    chars: Peekable<Chars<'src>>,
     cursor: usize,
     line: usize,
     finished: bool,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str) -> Self {
+impl<'src> Lexer<'src> {
+    pub fn new(source: &'src str) -> Self {
         Self {
             source,
             chars: source.chars().peekable(),
@@ -33,7 +33,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> (Vec<Token<'a>>, Vec<Spanned<LexError>>) {
+    pub fn tokenize(&mut self) -> (Vec<Token<'src>>, Vec<Spanned<LexError>>) {
         let mut tokens = Vec::new();
         let mut errors = Vec::new();
 
@@ -47,7 +47,7 @@ impl<'a> Lexer<'a> {
         (tokens, errors)
     }
 
-    fn scan_token(&mut self) -> Result<Token<'a>, Spanned<LexError>> {
+    fn scan_token(&mut self) -> Result<Token<'src>, Spanned<LexError>> {
         self.skip_trivia();
 
         let offset = self.cursor;
@@ -122,7 +122,7 @@ impl<'a> Lexer<'a> {
         Ok(Token::new(kind, lexeme, None))
     }
 
-    fn scan_identifier(&mut self, offset: usize) -> Token<'a> {
+    fn scan_identifier(&mut self, offset: usize) -> Token<'src> {
         self.advance_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
 
         let lexeme = self.slice_to_cursor(offset);
@@ -150,7 +150,7 @@ impl<'a> Lexer<'a> {
         Token::new(kind, lexeme, None)
     }
 
-    fn scan_string(&mut self, offset: usize) -> Result<Token<'a>, Spanned<LexError>> {
+    fn scan_string(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
         let start_line = self.line;
 
         while let Some(ch) = self.bump() {
@@ -174,7 +174,7 @@ impl<'a> Lexer<'a> {
         Err(Spanned::new(LexError::UnterminatedString, start_line))
     }
 
-    fn scan_number(&mut self, offset: usize) -> Result<Token<'a>, Spanned<LexError>> {
+    fn scan_number(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
         self.advance_while(|ch| ch.is_ascii_digit());
 
         let remaining = self.remaining_bytes();
@@ -280,11 +280,11 @@ impl<'a> Lexer<'a> {
         self.chars.peek().copied()
     }
 
-    fn slice_to_cursor(&self, offset: usize) -> &'a str {
+    fn slice_to_cursor(&self, offset: usize) -> &'src str {
         &self.source[offset..self.cursor]
     }
 
-    fn remaining_bytes(&self) -> &'a [u8] {
+    fn remaining_bytes(&self) -> &'src [u8] {
         &self.source.as_bytes()[self.cursor..]
     }
 }
