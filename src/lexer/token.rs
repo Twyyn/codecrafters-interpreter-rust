@@ -22,23 +22,32 @@ impl fmt::Display for Token<'_> {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Spanned (e.g., Location Of An Error)
+// Literal Values (i.e., the Concrete Values)
 // -------------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
-pub struct Spanned<T> {
-    pub inner: T,
-    pub index: u32,
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Literal<'a> {
+    Number(f64),
+    String(&'a str),
 }
 
-impl<T: fmt::Display> fmt::Display for Spanned<T> {
+impl fmt::Display for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] Error: {}", self.index, self.inner)
+        match self {
+            Self::Number(value) => {
+                if value.fract() == 0.0 {
+                    write!(f, "{value:.1}")
+                } else {
+                    write!(f, "{value}")
+                }
+            }
+            Self::String(str) => write!(f, "{str}"),
+        }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
-// Token Kind
+// Token Kinds / Types
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,30 +146,5 @@ impl fmt::Display for TokenKind {
         };
 
         f.write_str(s)
-    }
-}
-
-// -------------------------------------------------------------------------------------------------
-// Literal Values (i.e., the Concrete Values)
-// -------------------------------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Literal<'a> {
-    Number(f64),
-    String(&'a str),
-}
-
-impl fmt::Display for Literal<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Number(value) => {
-                if value.fract() == 0.0 {
-                    write!(f, "{value:.1}")
-                } else {
-                    write!(f, "{value}")
-                }
-            }
-            Self::String(str) => write!(f, "{str}"),
-        }
     }
 }

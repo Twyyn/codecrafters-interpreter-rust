@@ -1,13 +1,17 @@
+pub mod error;
 mod token;
 
-use self::token::{Literal, Spanned, Token, TokenKind};
-use memchr::memchr2;
+use self::{
+    error::{LexError, SpannedError},
+    token::{Literal, Token, TokenKind},
+};
+
 use std::{
     iter::{FusedIterator, Peekable},
-    num::ParseFloatError,
     str::Chars,
 };
-use thiserror::Error;
+
+use memchr::memchr2;
 
 // -------------------------------------------------------------------------------------------------
 // Lexer (Tokenizer) & Iterator
@@ -33,7 +37,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    pub fn tokenize(&mut self) -> (Vec<Token<'src>>, Vec<Spanned<LexError>>) {
+    pub fn tokenize(&mut self) -> (Vec<Token<'src>>, Vec<SpannedError<LexError>>) {
         let mut tokens = Vec::new();
         let mut errors = Vec::new();
 
@@ -47,7 +51,7 @@ impl<'src> Lexer<'src> {
         (tokens, errors)
     }
 
-    fn scan_token(&mut self) -> Result<Token<'src>, Spanned<LexError>> {
+    fn scan_token(&mut self) -> Result<Token<'src>, SpannedError<LexError>> {
         self.skip_trivia();
 
         let offset = self.cursor;
@@ -118,8 +122,8 @@ impl<'src> Lexer<'src> {
             }
 
             _ => {
-                return Err(Spanned {
-                    inner: LexError::UnexpectedChar { ch },
+                return Err(SpannedError {
+                    error: LexError::UnexpectedChar { ch },
                     index: self.index,
                 });
             }
@@ -168,7 +172,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    fn scan_string(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
+    fn scan_string(&mut self, offset: usize) -> Result<Token<'src>, SpannedError<LexError>> {
         let start_index = self.index;
 
         while let Some(ch) = self.bump() {
@@ -190,13 +194,13 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        Err(Spanned {
-            inner: LexError::UnterminatedString,
+        Err(SpannedError {
+            error: LexError::UnterminatedString,
             index: start_index,
         })
     }
 
-    fn scan_number(&mut self, offset: usize) -> Result<Token<'src>, Spanned<LexError>> {
+    fn scan_number(&mut self, offset: usize) -> Result<Token<'src>, SpannedError<LexError>> {
         self.advance_while(|ch| ch.is_ascii_digit());
 
         let remaining = self.remaining_bytes();
@@ -207,8 +211,8 @@ impl<'src> Lexer<'src> {
         }
 
         let lexeme = self.slice_to_cursor(offset);
-        let value = lexeme.parse::<f64>().map_err(|error| Spanned {
-            inner: LexError::InvalidNumber {
+        let value = lexeme.parse::<f64>().map_err(|error| SpannedError {
+            error: LexError::InvalidNumber {
                 text: lexeme.into(),
                 error,
             },
@@ -216,8 +220,8 @@ impl<'src> Lexer<'src> {
         })?;
 
         if !value.is_finite() {
-            return Err(Spanned {
-                inner: LexError::NumberOverflow {
+            return Err(SpannedError {
+                error: LexError::NumberOverflow {
                     text: lexeme.into(),
                 },
                 index: self.index,
@@ -311,7 +315,7 @@ impl<'src> Lexer<'src> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, Spanned<LexError>>;
+    type Item = Result<Token<'a>, SpannedError<LexError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -330,26 +334,3 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl FusedIterator for Lexer<'_> {}
-
-// -------------------------------------------------------------------------------------------------
-// Lexer Errors
-// -------------------------------------------------------------------------------------------------
-
-#[derive(Debug, Error)]
-pub enum LexError {
-    #[error("Unexpected character: {ch}")]
-    UnexpectedChar { ch: char },
-
-    #[error("Unterminated string.")]
-    UnterminatedString,
-
-    #[error("Invalid number '{text}': {error}")]
-    InvalidNumber {
-        #[source]
-        error: ParseFloatError,
-        text: String,
-    },
-
-    #[error("Number overflow: '{text}' is out of range")]
-    NumberOverflow { text: String },
-}
