@@ -2,7 +2,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Index {
-    /// Zero-based byte offset into the complete UTF-8 source, not a column.
+    /// Zero-based byte offset into the complete UTF-8 source.
     pub offset: usize,
     /// One-based line number. CRLF counts as one line break.
     pub line: usize,
