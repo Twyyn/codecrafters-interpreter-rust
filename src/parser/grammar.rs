@@ -1,2 +1,2 @@
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub enum Expr {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Expression {}
