@@ -1,8 +1,10 @@
 pub mod error;
+mod span;
 mod token;
 
-use self::{
+pub use self::{
     error::{LexError, SpannedError},
+    span::{Index, Span},
     token::{Literal, Token, TokenKind},
 };
 
@@ -21,8 +23,7 @@ use memchr::memchr2;
 pub struct Lexer<'src> {
     source: &'src str,
     chars: Peekable<Chars<'src>>,
-    cursor: usize,
-    index: u32,
+    cursor: Index,
     finished: bool,
 }
 
@@ -31,8 +32,7 @@ impl<'src> Lexer<'src> {
         Self {
             source,
             chars: source.chars().peekable(),
-            cursor: 0,
-            index: 1,
+            cursor: Index::default(),
             finished: false,
         }
     }
@@ -54,14 +54,14 @@ impl<'src> Lexer<'src> {
     fn scan_token(&mut self) -> Result<Token<'src>, SpannedError<LexError>> {
         self.skip_trivia();
 
-        let offset = self.cursor;
+        let start = self.cursor;
 
         let Some(ch) = self.bump() else {
             return Ok(Token {
                 kind: TokenKind::Eof,
                 lexeme: "",
                 literal: None,
-                index: self.index,
+                index: start,
             });
         };
 
@@ -110,39 +110,39 @@ impl<'src> Lexer<'src> {
             }
 
             '"' => {
-                return self.scan_string(offset);
+                return self.scan_string(start);
             }
 
             '0'..='9' => {
-                return self.scan_number(offset);
+                return self.scan_number(start);
             }
 
             'a'..='z' | 'A'..='Z' | '_' => {
-                return Ok(self.scan_identifier(offset));
+                return Ok(self.scan_identifier(start));
             }
 
             _ => {
-                return Err(SpannedError {
-                    error: LexError::UnexpectedChar { ch },
-                    index: self.index,
-                });
+                return Err(SpannedError::new(
+                    LexError::UnexpectedChar { ch },
+                    Span::new(start, self.cursor),
+                ));
             }
         };
 
-        let lexeme = self.slice_to_cursor(offset);
+        let lexeme = self.slice(start.offset);
 
         Ok(Token {
             kind,
             lexeme,
             literal: None,
-            index: self.index,
+            index: start,
         })
     }
 
-    fn scan_identifier(&mut self, offset: usize) -> Token<'src> {
+    fn scan_identifier(&mut self, start: Index) -> Token<'src> {
         self.advance_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
 
-        let lexeme = self.slice_to_cursor(offset);
+        let lexeme = self.slice(start.offset);
 
         let kind = match lexeme {
             "true" => TokenKind::True,
@@ -168,39 +168,38 @@ impl<'src> Lexer<'src> {
             kind,
             lexeme,
             literal: None,
-            index: self.index,
+            index: start,
         }
     }
 
-    fn scan_string(&mut self, offset: usize) -> Result<Token<'src>, SpannedError<LexError>> {
-        let start_index = self.index;
+    fn scan_string(&mut self, start: Index) -> Result<Token<'src>, SpannedError<LexError>> {
+        while let Some(ch) = self.peek() {
+            if matches!(ch, '\n' | '\r') {
+                break;
+            }
 
-        while let Some(ch) = self.bump() {
-            match ch {
-                '"' => {
-                    let lexeme = self.slice_to_cursor(offset);
-                    let value = &self.source[offset + 1..self.cursor - 1];
+            self.bump();
 
-                    return Ok(Token {
-                        kind: TokenKind::String,
-                        lexeme,
-                        literal: Some(Literal::String(value)),
-                        index: start_index,
-                    });
-                }
+            if ch == '"' {
+                let lexeme = self.slice(start.offset);
+                let value = &self.source[start.offset + 1..self.cursor.offset - 1];
 
-                '\n' => break,
-                _ => {}
+                return Ok(Token {
+                    kind: TokenKind::String,
+                    lexeme,
+                    literal: Some(Literal::String(value)),
+                    index: start,
+                });
             }
         }
 
-        Err(SpannedError {
-            error: LexError::UnterminatedString,
-            index: start_index,
-        })
+        Err(SpannedError::new(
+            LexError::UnterminatedString,
+            Span::new(start, self.cursor),
+        ))
     }
 
-    fn scan_number(&mut self, offset: usize) -> Result<Token<'src>, SpannedError<LexError>> {
+    fn scan_number(&mut self, start: Index) -> Result<Token<'src>, SpannedError<LexError>> {
         self.advance_while(|ch| ch.is_ascii_digit());
 
         let remaining = self.remaining_bytes();
@@ -210,29 +209,31 @@ impl<'src> Lexer<'src> {
             self.advance_while(|ch| ch.is_ascii_digit());
         }
 
-        let lexeme = self.slice_to_cursor(offset);
-        let value = lexeme.parse::<f64>().map_err(|error| SpannedError {
-            error: LexError::InvalidNumber {
-                text: lexeme.into(),
-                error,
-            },
-            index: self.index,
+        let lexeme = self.slice(start.offset);
+        let value = lexeme.parse::<f64>().map_err(|error| {
+            SpannedError::new(
+                LexError::InvalidNumber {
+                    error,
+                    text: lexeme.into(),
+                },
+                Span::new(start, self.cursor),
+            )
         })?;
 
         if !value.is_finite() {
-            return Err(SpannedError {
-                error: LexError::NumberOverflow {
+            return Err(SpannedError::new(
+                LexError::NumberOverflow {
                     text: lexeme.into(),
                 },
-                index: self.index,
-            });
+                Span::new(start, self.cursor),
+            ));
         }
 
         Ok(Token {
             kind: TokenKind::Number,
             lexeme,
             literal: Some(Literal::Number(value)),
-            index: self.index,
+            index: start,
         })
     }
 
@@ -248,6 +249,8 @@ impl<'src> Lexer<'src> {
 
             let comment_length = memchr2(b'\n', b'\r', bytes).unwrap_or(bytes.len());
 
+            // Stop before the line ending so bump() remains responsible for lines.
+            // An ASCII delimiter (or EOF) is always a UTF-8 character boundary.
             self.advance_bytes(comment_length);
         }
     }
@@ -258,13 +261,18 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    /// Skip a known newline-free range ending at a UTF-8 character boundary.
     fn advance_bytes(&mut self, n: usize) {
-        let end = self.cursor + n;
+        let end = self.cursor.offset + n;
 
         let remaining = &self.source[end..];
 
         self.chars = remaining.chars().peekable();
-        self.cursor = end;
+
+        self.cursor = Index {
+            offset: end,
+            line: self.cursor.line,
+        };
     }
 
     fn advance_if(&mut self, expected: char) -> bool {
@@ -278,20 +286,21 @@ impl<'src> Lexer<'src> {
 
     fn bump(&mut self) -> Option<char> {
         let ch = self.chars.next()?;
-        let offset = self.cursor;
+        let offset = self.cursor.offset;
 
-        self.cursor += ch.len_utf8();
+        self.cursor.offset += ch.len_utf8();
 
         match ch {
             '\r' => {
-                self.index += 1;
+                self.cursor.line += 1;
             }
 
             '\n' => {
+                // CRLF is one line break; the CR already advanced the line.
                 let trailing = offset > 0 && self.source.as_bytes()[offset - 1] == b'\r';
 
                 if !trailing {
-                    self.index += 1;
+                    self.cursor.line += 1;
                 }
             }
 
@@ -305,12 +314,12 @@ impl<'src> Lexer<'src> {
         self.chars.peek().copied()
     }
 
-    fn slice_to_cursor(&self, offset: usize) -> &'src str {
-        &self.source[offset..self.cursor]
+    fn slice(&self, offset: usize) -> &'src str {
+        &self.source[offset..self.cursor.offset]
     }
 
     fn remaining_bytes(&self) -> &'src [u8] {
-        &self.source.as_bytes()[self.cursor..]
+        &self.source.as_bytes()[self.cursor.offset..]
     }
 }
 

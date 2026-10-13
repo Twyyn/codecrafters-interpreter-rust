@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::span::Index;
+
 // -------------------------------------------------------------------------------------------------
 // Token
 // -------------------------------------------------------------------------------------------------
@@ -9,13 +11,13 @@ pub struct Token<'src> {
     pub kind: TokenKind,
     pub lexeme: &'src str,
     pub literal: Option<Literal<'src>>,
-    pub index: u32,
+    pub index: Index,
 }
 
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.literal {
-            Some(literal) => write!(f, "{} {} {literal} ", self.kind, self.lexeme),
+            Some(literal) => write!(f, "{} {} {literal}", self.kind, self.lexeme),
             None => write!(f, "{} {} null", self.kind, self.lexeme),
         }
     }

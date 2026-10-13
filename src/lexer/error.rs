@@ -1,24 +1,29 @@
+use super::span::Span;
 use std::{fmt, num::ParseFloatError};
-
-// -------------------------------------------------------------------------------------------------
-// Spanned Error (Error And It's Index (Or Line))
-// -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct SpannedError<T> {
     pub error: T,
-    pub index: u32,
+    pub span: Span,
+}
+
+impl<T> SpannedError<T> {
+    pub fn new(error: T, span: Span) -> Self {
+        Self { error, span }
+    }
 }
 
 impl<T: fmt::Display> fmt::Display for SpannedError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}] Error: {}", self.index, self.error)
+        write!(f, "[line {}] Error: {}", self.span.start().line, self.error)
     }
 }
 
-// -------------------------------------------------------------------------------------------------
-// Lexer Errors
-// -------------------------------------------------------------------------------------------------
+impl<T: std::error::Error + 'static> std::error::Error for SpannedError<T> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.error)
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum LexError {
