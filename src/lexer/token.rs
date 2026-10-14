@@ -1,55 +1,35 @@
+use crate::Span;
 use std::fmt;
-
-use super::span::Index;
 
 // -------------------------------------------------------------------------------------------------
 // Token
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Token<'src> {
-    pub kind: TokenKind,
-    pub lexeme: &'src str,
-    pub literal: Option<Literal<'src>>,
-    pub index: Index,
+pub struct Token {
+    kind: TokenKind,
+    length: u32,
 }
 
-impl fmt::Display for Token<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.literal {
-            Some(literal) => write!(f, "{} {} {literal}", self.kind, self.lexeme),
-            None => write!(f, "{} {} null", self.kind, self.lexeme),
-        }
+impl Token {
+    fn new(kind: TokenKind, length: u32) -> Token {
+        Token { kind, length }
+    }
+}
+
+pub struct SpannedToken {
+    kind: TokenKind,
+    span: Span,
+}
+
+impl SpannedToken {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
+        Self { kind, span }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
-// Literal Values (i.e., the Concrete Values)
-// -------------------------------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Literal<'a> {
-    Number(f64),
-    String(&'a str),
-}
-
-impl fmt::Display for Literal<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Number(value) => {
-                if value.fract() == 0.0 {
-                    write!(f, "{value:.1}")
-                } else {
-                    write!(f, "{value}")
-                }
-            }
-            Self::String(str) => write!(f, "{str}"),
-        }
-    }
-}
-
-// -------------------------------------------------------------------------------------------------
-// Token Kinds / Types
+// Token Kinds
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,3 +130,28 @@ impl fmt::Display for TokenKind {
         f.write_str(s)
     }
 }
+
+// -------------------------------------------------------------------------------------------------
+// Literal Values (i.e., the Concrete Values)
+// -------------------------------------------------------------------------------------------------
+
+// #[derive(Debug, Clone, Copy, PartialEq)]
+// pub enum Literal<'a> {
+//     Number(f64),
+//     String(&'a str),
+// }
+
+// impl fmt::Display for Literal<'_> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             Self::Number(value) => {
+//                 if value.fract() == 0.0 {
+//                     write!(f, "{value:.1}")
+//                 } else {
+//                     write!(f, "{value}")
+//                 }
+//             }
+//             Self::String(str) => write!(f, "{str}"),
+//         }
+//     }
+// }
